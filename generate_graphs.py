@@ -4,6 +4,8 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 # import rags_test as rags 
+# from test import ragspath
+# from rags_test import find_path
 
 class GraphGenerator:
 	def __init__(self, mean_max, var_max, radius_connect):
@@ -57,12 +59,13 @@ class GraphGenerator:
 
 
 
-test = GraphGenerator(20, 5, 15)
-graph, ns = test.gen_graph(20, 30, 30)
+# test = GraphGenerator(20, 5, 15)
+# graph, ns = test.gen_graph(20, 30, 30)
 # nx.draw_networkx(graph, ns, edgelist = graph.edges)
-# nx.draw_networkx(graph, with_labels = True)
+# nx.draw_networkx(graph, with_labels = False)
 
-# plt.axis('off')
+# # plt.axis('off')
 # plt.show(block=True)  
-
+# print(find_path(graph, 0, 19, 0.6))
+# print(rags(graph, 0, 19, 0.9))
 
