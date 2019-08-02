@@ -9,7 +9,18 @@ import generate_graphs as gen
 import matplotlib.pyplot as plt
 import math
 
-threshold = 0.6
+threshold = 0.75
+
+def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
+    print("printing")
+    nx.draw_networkx(graph, ns, edgelist = graph.edges)
+    path = []
+    for i in range(1, len(final)):
+        path.append((final[i - 1], final[i]))
+    nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges), edge_color = color1)
+    nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
+    plt.axis('off')
+    plt.show(block=True)
 
 class PathObject:
 	def __init__(self, path, mean ,var):
@@ -61,6 +72,7 @@ def constructSubgraph(graph, closed, goal, start):
 	#contains a map of nodes to paths from them to the goal as well as the mean/var of those paths
 	#if closed is like g in a*, path_sets is like h in a*
 	path_sets = defaultdict(set)
+	nd_edges = set([])
 
 	R.add_node(start)
 	for p in closed[goal]:
@@ -81,6 +93,7 @@ def constructSubgraph(graph, closed, goal, start):
 				R.add_node(path[i])
 
 			if (path[i - 1], path[i]) not in R.edges:
+				nd_edges.add((path[i-1], path[i]))
 				R.add_edge(path[i - 1], path[i], 
 					mean = graph.edges[path[i - 1], path[i]]['mean'], 
 					var = graph.edges[path[i - 1], path[i]]['var'])
@@ -89,7 +102,7 @@ def constructSubgraph(graph, closed, goal, start):
 	final_sets = {}
 	for k,v in path_sets.items():
 		final_sets[k] = list(v)
-	return (R, final_sets)		
+	return (R, final_sets, nd_edges)		
 
 def get_successors(graph, node):
 	print(graph.successors(node))
@@ -184,7 +197,7 @@ def comparePathSets(g, end, current, nbrs, paths):
 
 
 
-def ragspath(graph, start, end, threshold):
+def ragspath(graph, ns, start, end, threshold):
 
 	#Phase 1 - pruning
 	open_paths = []
@@ -224,13 +237,14 @@ def ragspath(graph, start, end, threshold):
 		return []
 
 	#Make the graph
-	G_nd, path_sets = constructSubgraph(graph, closed, end, start)
+	G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, start)
 
 	final = []
 	current = start
 
 	while current != end:
 		final.append(current)
+		# takestep()
 
 		nbrs = list(set([p.path[1] for p in path_sets[current] if p.path[1] not in final]))
 
@@ -239,18 +253,20 @@ def ragspath(graph, start, end, threshold):
 
 	final.append(end)
 
+	print_graph_2colors(graph, ns, nd_edges, final, 'r', 'b')
+
 	return final
 
 
 
 
-for i in range(20):
-	test = gen.GraphGenerator(10, 10, 15)
-	graph, ns = test.gen_graph(20, 30, 30)
-	nx.draw_networkx(graph, ns, edgelist = graph.edges)
-	# plt.show()
+# for i in range(20):
+test = gen.GraphGenerator(10, 10, 20)
+graph, ns = test.gen_graph(30, 40, 40)
+# nx.draw_networkx(graph, ns, edgelist = graph.edges)
+# plt.show()
 
-	print(nx.astar_path(graph, 0, 19))
-	print(ragspath(graph, 0, 19, 0.8))
+print(nx.astar_path(graph, 0, 29))
+print(ragspath(graph, ns, 0, 29, 0.8))
 
 
