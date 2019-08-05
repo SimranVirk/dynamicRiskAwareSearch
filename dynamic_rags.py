@@ -114,11 +114,12 @@ class DRAGS:
 		q = [v]
 		
 		while len(q) > 0:
-			cur = q[0]
-			for obj in closed[cur]:
+			# print(len(q))
+			cur = q.pop(0)
+			for obj in self.closed[cur]:
 				if u in obj.path and v in obj.path:
 					if  obj.path.index(u) + 1 == obj.path.index(v):
-						closed[obj.path[-1]].remove(obj)
+						self.closed[obj.path[-1]].remove(obj)
 						for succ in self.g.successors(obj.path[-1]):
 							if succ not in q:
 								q.append(succ)	
@@ -144,10 +145,11 @@ class DRAGS:
 	def update_edge(self, u, v, newm, newv):
 		self.deleteFromClosed(u, v)
 		self.deleteFromOpen(u, v)
+		print("cleaned")
 
-		temp = closed[v]
+		temp = self.closed[v]
 
-		for p_u in closed[u]:
+		for p_u in self.closed[u]:
 			path = copy.deepcopy(p_u.path)
 			path.append(v)
 			mean = p_u.mean + self.get_mean(u,v)
@@ -166,6 +168,8 @@ class DRAGS:
 
 				temp.append(p_v)
 				heapq.heappush(self.opened, p_v)
+
+		self.closed[v] = temp
 
 		return 
 
@@ -187,12 +191,12 @@ class DRAGS:
 
 			self.closed[cur_node].append(cur)
 			for path in self.getBetterPathstoNode(cur_node, cur):
-				print("bad")
+				# print("bad")
 				#This should never run w/o memoization
 
 				#remove paths from closed and open
 				self.deleteFromClosed(path.path[-2], path.path[-1])
-				self.deleteFromOpened(path.path[-2], path.path[-1])
+				self.deleteFromOpen(path.path[-2], path.path[-1])
 
 			if cur_node != self.end:
 
@@ -366,6 +370,53 @@ class DRAGS:
 
 		return next_node
 
+	#=============================================================================
+	def run(self, gg):
+		time1 = time.time()
+		self.prune_graph()
+		# time2 = time.time()
+		# print("phase 1 ", time2 - time1)
+		node = self.take_step()
+		print("next path node ", node)
+
+		update_ctr = 0
+
+		while node != self.end:
+			updates = []
+
+			for edge in gg.changes.keys():
+				if edge[0] == node:
+					updates.append(edge)
+
+
+			if len(updates) > 0:
+				update_ctr += 1
+
+			for edge in updates:
+				print("updating edge ", edge)
+				meanvar = gg.changes[edge]
+				self.g.edges[edge[0], edge[1]]["mean"] = meanvar[0]
+				self.g.edges[edge[0], edge[1]]["var"] = meanvar[1]
+
+				self.update_edge(edge[0], edge[1], meanvar[0], meanvar[1])
+
+			self.prune_graph()
+
+			node = self.take_step()
+			#see if any nbr edges are different
+			print("next path node ",node)
+
+
+		print("\n\n================")
+		print("time: ", time.time() - time1, "updates: ", update_ctr)
+
+
+	def run_replan(self, gg):
+		test.run(self.g, self.start, self.end, gg)
+		print("done")
+
+		
+
 
 
 if __name__ == "__main__":
@@ -375,52 +426,25 @@ if __name__ == "__main__":
 	nx.draw_networkx(graph, ns, edgelist = graph.edges)
 	plt.show()
 
+
+
 	d = DRAGS(graph, ns, 0, 29, 0.75)
-	time1 = time.time()
-	d.prune_graph()
-	time2 = time.time()
-	print("phase 1 ", time2 - time1)
+	gg.getEdgeChanges(10)
+
+	d.run(gg)
+	d.run_replan(gg)
 	# tuple1 = d.take_step()
 
-	node = d.take_step()
-	print(node)
-	while node != d.end:
-		node = d.take_step()
-		print(node)
 
 
-	# tuple2 = test.ragspath(graph, ns, 0, 29, 0.75)
 
-	# print("testing equality")
-	# paths1 = tuple1[1]
-	# paths2 = tuple2[1]
-	# for k,v in paths1.items():
-	# 	if k not in paths2.keys():
-	# 		print("not equal")
-	# 		break
-	# 	elif len(v) != len(paths2[k]):
-	# 		print("not equal 2")
-	# 		break
-		
-	# 	seen = False
-	# 	for i in v:
+	#plan backwards -- from goal to start
 
-	# 		for j in paths2[k]:
-	# 			if i.path == j.path:
-	# 				seen = True
+	#edge updates are found by following the path and discovering that the input
+	# was incorrect - this models seeing a dynamic/uncertain environment
 
-	# 	if not seen:
-	# 		print("not equal 3")
-	# 		break
-
-	# print("they are equal")
-
-	#spend 1 - 2 days on this from here
-	#if not this, then on sat night, choose something else
-	
-	#design an example that updates edges 
-		# how are updates found? - while following a path or by an oracle - two ways
-
+	#in info gain - would be a bunch of edges nearby the edge just traversed (i.e a bunch of 
+	#edges that a correlated with the edge just traversed)
 
 	#want to compare a certain amount of updates with replanning on updates
 	#want faster compute/comparable paths

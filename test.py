@@ -8,6 +8,7 @@ from collections import defaultdict
 # import generate_graphs as gen
 import matplotlib.pyplot as plt
 import math
+import time
 
 threshold = 0.75
 
@@ -196,8 +197,7 @@ def comparePathSets(g, end, current, nbrs, paths):
 #=======================================================================
 
 
-
-def ragspath(graph, ns, start, end, threshold):
+def phase1(graph, start, end):
 
 	#Phase 1 - pruning
 	open_paths = []
@@ -236,28 +236,68 @@ def ragspath(graph, ns, start, end, threshold):
 		print("No path to goal")
 		return []
 
+	return closed
+
+
+
+def takestep(G_nd, path_sets, current, path_soFar, end):
+
+	if path_soFar[-1] == end:
+		print("reached goal")
+		return None
+
+
+	nbrs = list(set([p.path[1] for p in path_sets[current] if p.path[1] not in path_soFar]))
+	next_node = comparePathSets(G_nd, end, current, nbrs, path_sets)
+
+	return next_node
+
+
+def printPathsets(path_sets):
+	for k,v in path_sets.items():
+		print(k)
+		for path in v:
+			print(path.path, ", ", path.mean, ", ", path.var)
+
+	return
+
+def run(graph, start, end, gg):
+	time1 = time.time()
+	closed = phase1(graph, start, end)
+
 	#Make the graph
 	G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, start)
-
-	final = []
+	path_soFar = [start]
 	current = start
 
+	node = takestep(G_nd, path_sets, current, path_soFar, end)
+	path_soFar.append(node)
+	current = node
+	print("next path node ", node)
+
+	update_ctr = 0
+
 	while current != end:
-		final.append(current)
-		# takestep()
 
-		nbrs = list(set([p.path[1] for p in path_sets[current] if p.path[1] not in final]))
+		replan = False
+		for edge in gg.changes.keys():
+			if edge[0] == node:
+				print("updating bc of edge ", edge)
+				replan = True
 
-		next_node = comparePathSets(G_nd, end, current, nbrs, path_sets)
-		current = next_node
+		if replan:
+			update_ctr += 1
+			closed = phase1(graph, current, end)
+			G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, current)
 
-	final.append(end)
+		node = takestep(G_nd, path_sets, current, path_soFar, end)
+		path_soFar.append(node)
+		current = node
+		print("next path node ", node)
 
-	# print_graph_2colors(graph, ns, nd_edges, final, 'r', 'b')
 
-	return final, path_sets
-
-
+	print("\n\n================")
+	print("time: ", time.time() - time1, "updates: ", update_ctr)
 
 
 # # for i in range(20):

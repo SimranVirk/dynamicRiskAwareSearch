@@ -3,6 +3,7 @@ import networkx as nx
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 # import rags_test as rags 
 # from test import ragspath
 # from rags_test import find_path
@@ -14,6 +15,7 @@ class GraphGenerator:
 		self.var_max = var_max
 		self.radius_connect = radius_connect
 		self.g = nx.DiGraph()
+		self.changes = {}
 		return
 
 	def gen_graph(self, num_verts, max_w, max_h):
@@ -55,7 +57,30 @@ class GraphGenerator:
 					mean = dist + random.randint(0, self.mean_max)
 					var = random.randint(0, self.var_max)
 					g.add_edge(i, j, mean = mean, var = var)
+
+
+		self.g = g
 		return g, attr
+
+
+	def getEdgeChanges(self, num_changes):
+		"""
+			Create a set of edges to change and their final mean and variances
+		"""
+		edgesToChange = random.sample(self.g.edges, num_changes)
+		for edge in edgesToChange:
+			self.changes[edge] = []
+			self.changes[edge].append(random.randint(0, self.mean_max))
+			self.changes[edge].append(random.randint(0, self.var_max))
+
+
+	def changeEdge(self, edge):
+		"""
+			Change edge u,v according to the stored changes
+		"""
+		meanvar = self.changes[edge]
+		self.g.edges[edge[0], edge[1]]["mean"] = meanvar[0]
+		self.g.edges[edge[0], edge[1]]["var"] = meanvar[1]
 
 
 
