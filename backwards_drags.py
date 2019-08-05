@@ -80,6 +80,8 @@ class DRAGS:
 		self.current_pos = self.start
 		self.path = [self.start]
 
+		self.cost = 0
+
 
 	def get_mean(self, node1, node2):
 		return self.g.edges[node1, node2]['mean']
@@ -99,7 +101,7 @@ class DRAGS:
 		return self.setDomPath(p, self.closed[last])
 
 	def betterPathToGoal(self, p):
-		return self.setDomPath(p, self.closed[self.start])
+		return self.setDomPath(p, self.closed[self.current_pos])
 
 	#==========================================================================
 	#updation functions
@@ -111,35 +113,41 @@ class DRAGS:
 		This needs to be optimized
 
 		"""
-		q = [u]
+
+		#*** this is making the assumption that we only get updated information at the
+		#edges we touch
+
 		
-		removal = False
-		i = 0
-		while len(q) > 0:
-			i += 1
-			cur = q.pop(0)
+		# removal = False
+		removals = []
+		for i in range(len(self.closed[u])):
+			obj = self.closed[u][i]
+			if obj.path[-2] == v:
+				removals.append(obj)
 
-			for obj in self.closed[cur]:
-				if u in obj.path and v in obj.path:
-					if  obj.path.index(v) + 1 == obj.path.index(u):
-						removal = True
-						self.closed[obj.path[-1]].remove(obj)
-						for pred in self.g.predecessors(obj.path[-1]):
-							if pred not in q:
-								q.append(pred)	
-
-		print("del closed " ,i)
-		return removal
+		for obj in removals:
+			self.closed[u].remove(obj)
+		
+		return len(removals) > 0
 						
 
 	def deleteFromOpen(self, u, v):
 		"""
 		Delete everything in opened that contains edge u,v
 		"""
+		#*** this removes things from list while iterating through it
+		removals = []
 		for obj in self.opened:
 			if u in obj.path and v in obj.path:
 				if obj.path.index(v) + 1 == obj.path.index(u):
-					self.opened.remove(obj)
+					removals.append(obj)
+
+		for obj in removals:
+			self.opened.remove(obj)
+
+		return
+
+
 
 	def getWorsePaths(self, p, s):
 		out = []
@@ -155,31 +163,33 @@ class DRAGS:
 			return
 
 		self.deleteFromOpen(u, v)
+		# self.opened = []
+		# heapq.heapify(self.opened)
 		print("cleaned")
 
-		temp = self.closed[v]
+		temp = self.closed[u]
 
-		for p_u in self.closed[u]:
-			path = copy.deepcopy(p_u.path)
-			path.append(v)
-			mean = p_u.mean + self.get_mean(u,v)
-			var = p_u.var + self.get_var(u, v)
-			p_v = PathObject(path, mean, var)
+		for p_v in self.closed[v]:
+			path = copy.deepcopy(p_v.path)
+			path.append(u)
+			mean = p_v.mean + self.get_mean(u,v)
+			var = p_v.var + self.get_var(u, v)
+			p_u = PathObject(path, mean, var)
 
 			
-			if self.setDomPath(p_v, temp):
+			if self.setDomPath(p_u, temp):
 				#new path is bad
 				continue
 			else:
 				#new path is good
-				for p in self.getWorsePaths(p_v, temp):
+				for p in self.getWorsePaths(p_u, temp):
 					self.deleteFromClosed(p.path[-2], p.path[-1])
 					self.deleteFromOpen(p.path[-2], p.path[-1])
 
-				temp.append(p_v)
-				heapq.heappush(self.opened, p_v)
+				temp.append(p_u)
+				heapq.heappush(self.opened, p_u)
 
-		self.closed[v] = temp
+		self.closed[u] = temp
 
 		return 
 
@@ -195,7 +205,7 @@ class DRAGS:
 
 	def prune_graph(self):
 		i = 0
-		while len(self.opened) > 0:
+		while len(self.opened) > 0 and not self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
 			i += 1
 			cur = heapq.heappop(self.opened)
 		
@@ -210,7 +220,7 @@ class DRAGS:
 			# 	self.deleteFromClosed(path.path[-2], path.path[-1])
 			# 	self.deleteFromOpen(path.path[-2], path.path[-1])
 
-			if cur_node != self.start:
+			if cur_node != self.current_pos:
 
 				for pred in self.g.predecessors(cur_node):
 					if pred not in cur.path:
@@ -227,12 +237,12 @@ class DRAGS:
 							#***check if this thing is not already in closed - do i need to do this?
 							heapq.heappush(self.opened, p)
 
-			if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
-				break
+			# if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
+			# 	break
 
 		print("prune graph ", i)
 
-		if len(self.closed[self.start]) == 0:
+		if len(self.closed[self.current_pos]) == 0:
 			print("No path to goal")
 			return []
 
@@ -322,10 +332,14 @@ class DRAGS:
 			return None
 
 		if len(nbrs) == 1:
+			self.cost += max(0, np.random.normal(self.g.edges[current, nbrs[0]]["mean"], 
+				self.g.edges[current, nbrs[0]]["var"]))
 			return nbrs[0]
 
 		#should compare the concrete cost of the end with the expected cost of another path to it. for now just go to end - this will cause problems
 		if self.end in nbrs:
+			self.cost += max(0, np.random.normal(self.g.edges[current, self.end]["mean"], 
+				self.g.edges[current, self.end]["var"]))
 			return self.end
 
 		else:
@@ -356,6 +370,8 @@ class DRAGS:
 
 					idx += 1
 
+			print("adding cost ", costs[min_node])
+			self.cost += costs[min_node]
 			return min_node
 
 
@@ -377,7 +393,9 @@ class DRAGS:
 		nbrs = list(set([p.path[1] for p in self.path_sets[self.current_pos] if p.path[1] not in self.path]))
 
 		next_node = self.comparePathSets(self.current_pos, nbrs)
+
 		self.current_pos = next_node
+
 
 		self.path.append(next_node)
 
@@ -389,10 +407,9 @@ class DRAGS:
 
 	#=============================================================================
 	def run(self, gg):
-		time1 = time.time()
 		self.prune_graph()
-		# time2 = time.time()
-		# print("phase 1 ", time2 - time1)
+		time1 = time.time()
+
 		node = self.take_step()
 		print("next path node ", node)
 
@@ -418,7 +435,7 @@ class DRAGS:
 				self.update_edge(edge[0], edge[1], meanvar[0], meanvar[1])
 				self.updated = True
 
-			if len(updates) > 1:
+			if len(updates) > 0:
 				self.prune_graph()
 
 			node = self.take_step()
@@ -426,13 +443,17 @@ class DRAGS:
 			print("next path node ",node)
 
 
+		total = time.time() - time1
 		print("\n\n================")
-		print("time: ", time.time() - time1, "updates: ", update_ctr)
+		print("time: ", total, "updates: ", update_ctr, "cost: ", self.cost)
+
+		return total, update_ctr, self.cost
 
 
 	def run_replan(self, gg):
-		test.run(self.g, self.start, self.end, gg)
+		lst = test.run(self.g, self.start, self.end, gg)
 		print("done")
+		return lst
 
 		
 
@@ -440,18 +461,48 @@ class DRAGS:
 
 if __name__ == "__main__":
 
+	t1 = 0
+	u1 = 0
+	t2 = 0
+	u2 = 0
+	c1 = 0
+	c2 = 0
+	# for i in range(10):
 	gg = gen.GraphGenerator(10, 10, 20)
 	graph, ns = gg.gen_graph(30, 40, 40)
 	# nx.draw_networkx(graph, ns, edgelist = graph.edges)
 	# plt.show()
 
+	better = 0
+	bettercost  = 0
+	for i in range(10):
+		d = DRAGS(graph, ns, 0, 29, 0.75)
+		gg.getEdgeChanges(10)
 
+		l1 = d.run(gg)
+		l2 = d.run_replan(gg)
 
-	d = DRAGS(graph, ns, 0, 29, 0.75)
-	gg.getEdgeChanges(10)
+		t1 += l1[0]
+		u1 += l1[1]
 
-	d.run(gg)
-	d.run_replan(gg)
+		t2 += l2[0]
+		u2 += l2[1]
+
+		c1 += l1[2]
+		c2 += l2[2]
+
+		if l1[0] < l2[0]:
+			better += 1
+
+		if l1[2] < l2[2]:
+			bettercost += 1
+
+	print("============")
+	print("stats - t1: ", t1,", u1: ",u1, "c1 ", c1)
+	print("t2: ", t2, "u2: ", u2, "c2: ", c2)
+	print("better ", better)
+	print("better cost ", bettercost)
+
 	# tuple1 = d.take_step()
 
 

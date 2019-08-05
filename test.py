@@ -88,6 +88,10 @@ def constructSubgraph(graph, closed, goal, start):
 				curm -= graph.edges[path[i-1], path[i]]['mean']
 				curv -= graph.edges[path[i-1], path[i]]['var']
 
+				if curv <= 0:
+					curv = 0.1
+					print("bad")
+
 				path_sets[path[i]].add(PathObject(path[i:], curm, curv))
 
 			if path[i] not in R.nodes:
@@ -156,11 +160,11 @@ def comparePathSets(g, end, current, nbrs, paths):
 		return None
 
 	if len(nbrs) == 1:
-		return nbrs[0]
+		return nbrs[0], max(0, np.random.normal(g.edges[current, nbrs[0]]["mean"], g.edges[current, nbrs[0]]["var"]))
 
 	#should compare the concrete cost of the end with the expected cost of another path to it. for now just go to end - this will cause problems
 	if end in nbrs:
-		return end
+		return end, max(0, np.random.normal(g.edges[current, end]["mean"], g.edges[current, end]["var"]))
 
 	else:
 
@@ -190,7 +194,10 @@ def comparePathSets(g, end, current, nbrs, paths):
 
 				idx += 1
 
-		return min_node
+		out = []
+		out.append(min_node)
+		out.append(costs[min_node])
+		return out
 
 
 
@@ -207,7 +214,10 @@ def phase1(graph, start, end):
 	path0 = PathObject([start], 0, 0)
 	heapq.heappush(open_paths, path0)
 
+	i = 0
+
 	while len(open_paths) > 0:
+		i += 1
 		cur = heapq.heappop(open_paths)
 		
 		cur_node = cur.path[-1]
@@ -236,11 +246,13 @@ def phase1(graph, start, end):
 		print("No path to goal")
 		return []
 
+	print("prune graph ",i)
+
 	return closed
 
 
 
-def takestep(G_nd, path_sets, current, path_soFar, end):
+def takestep(G_nd, path_sets, current, path_soFar, end, totalcost):
 
 	if path_soFar[-1] == end:
 		print("reached goal")
@@ -248,9 +260,8 @@ def takestep(G_nd, path_sets, current, path_soFar, end):
 
 
 	nbrs = list(set([p.path[1] for p in path_sets[current] if p.path[1] not in path_soFar]))
-	next_node = comparePathSets(G_nd, end, current, nbrs, path_sets)
+	return  comparePathSets(G_nd, end, current, nbrs, path_sets)
 
-	return next_node
 
 
 def printPathsets(path_sets):
@@ -262,15 +273,17 @@ def printPathsets(path_sets):
 	return
 
 def run(graph, start, end, gg):
-	time1 = time.time()
+	totalcost = 0
 	closed = phase1(graph, start, end)
+	time1 = time.time()
 
 	#Make the graph
 	G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, start)
 	path_soFar = [start]
 	current = start
 
-	node = takestep(G_nd, path_sets, current, path_soFar, end)
+	node, cost = takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
+	totalcost += cost
 	path_soFar.append(node)
 	current = node
 	print("next path node ", node)
@@ -290,15 +303,18 @@ def run(graph, start, end, gg):
 			closed = phase1(graph, current, end)
 			G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, current)
 
-		node = takestep(G_nd, path_sets, current, path_soFar, end)
+		node, cost =  takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
+		totalcost += cost
 		path_soFar.append(node)
 		current = node
 		print("next path node ", node)
 
 
+	total = time.time() - time1
 	print("\n\n================")
-	print("time: ", time.time() - time1, "updates: ", update_ctr)
+	print("time: ", total, "updates: ", update_ctr, "cost: ", totalcost)
 
+	return total, update_ctr, totalcost
 
 # # for i in range(20):
 # test = gen.GraphGenerator(10, 10, 20)
