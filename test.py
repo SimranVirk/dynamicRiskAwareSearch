@@ -5,7 +5,7 @@ from scipy.special import erfinv, erfc
 import scipy.integrate
 import copy
 from collections import defaultdict
-import generate_graphs as gen
+# import generate_graphs as gen
 import matplotlib.pyplot as plt
 import math
 
@@ -253,20 +253,20 @@ def ragspath(graph, ns, start, end, threshold):
 
 	final.append(end)
 
-	print_graph_2colors(graph, ns, nd_edges, final, 'r', 'b')
+	# print_graph_2colors(graph, ns, nd_edges, final, 'r', 'b')
 
-	return final
-
-
+	return final, path_sets
 
 
-# for i in range(20):
-test = gen.GraphGenerator(10, 10, 20)
-graph, ns = test.gen_graph(30, 40, 40)
-# nx.draw_networkx(graph, ns, edgelist = graph.edges)
-# plt.show()
 
-print(nx.astar_path(graph, 0, 29))
-print(ragspath(graph, ns, 0, 29, 0.8))
+
+# # for i in range(20):
+# test = gen.GraphGenerator(10, 10, 20)
+# graph, ns = test.gen_graph(30, 40, 40)
+# # nx.draw_networkx(graph, ns, edgelist = graph.edges)
+# # plt.show()
+
+# print(nx.astar_path(graph, 0, 29))
+# print(ragspath(graph, ns, 0, 29, 0.8))
 
 

@@ -8,7 +8,21 @@ from collections import defaultdict
 import generate_graphs as gen
 import matplotlib.pyplot as plt
 import math
+import time
+import test
 
+threshold = 0.75
+
+def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
+    print("printing")
+    nx.draw_networkx(graph, ns, edgelist = graph.edges)
+    path = []
+    for i in range(1, len(final)):
+        path.append((final[i - 1], final[i]))
+    nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges), edge_color = color1)
+    nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
+    plt.axis('off')
+    plt.show(block=True)
 
 def dom(p1, p2):
 	"""
@@ -17,7 +31,6 @@ def dom(p1, p2):
 	rhs = p2.mean + math.sqrt(2 * (p1.var + p2.var)) * erfinv(1 - 2 * threshold)
 	return p1.mean < rhs
 
-#intelligent updates
 class PathObject:
 	def __init__(self, path, mean ,var):
 		self.path = path
@@ -45,11 +58,12 @@ class PathObject:
 
 class DRAGS:
 
-	def __init__(self, graph, start, end, threshold):
+	def __init__(self, graph, ns, start, end, threshold):
 		self.g = graph
 		self.start = start
 		self.end = end
 		self.threshold = threshold
+		self.vert_locs = ns
 
 		self.opened = []
 		heapq.heapify(self.opened)
@@ -57,24 +71,38 @@ class DRAGS:
 		self.closed = defaultdict(list)
 	
 		path0 = PathObject([start], 0, 0)
-		heapq.heappush(opened, path0)
+		heapq.heappush(self.opened, path0)
 
 		self.updated = 1
+		self.nd_edges = []
 		self.path_sets = {}
+
+		self.current_pos = self.start
+		self.path = [self.start]
+
+
+	def get_mean(self, node1, node2):
+		return self.g.edges[node1, node2]['mean']
+
+	def get_var(self, node1, node2):
+		return self.g.edges[node1, node2]['var']
+
+	def setDomPath(self, path, s):
+		for x in s:
+			if dom(x, path):
+				return True
+		return False
 
 
 	def betterPathToNode(self, p):
-	last = p.path[-1]
-	for i in self.closed[last]:
-		if dom(i, p):
-			return True
-	return False
+		last = p.path[-1]
+		return self.setDomPath(p, self.closed[last])
 
 	def betterPathToGoal(self, p):
-		for i in self.closed[self.end]:
-			if dom(i, p):
-				return True
-		return False
+		return self.setDomPath(p, self.closed[self.end])
+
+	#==========================================================================
+	#updation functions
 
 	def deleteFromClosed(self, u, v):
 		"""
@@ -88,11 +116,12 @@ class DRAGS:
 		while len(q) > 0:
 			cur = q[0]
 			for obj in closed[cur]:
-				if u in obj.path and v in obj.path and obj.path.index(u) + 1 == obj.path.index(v):
-					closed[obj.path[-1]].remove(obj)
-					for succ in self.g.successors(obj.path[-1]):
-						if succ not in q:
-							q.append(succ)	
+				if u in obj.path and v in obj.path:
+					if  obj.path.index(u) + 1 == obj.path.index(v):
+						closed[obj.path[-1]].remove(obj)
+						for succ in self.g.successors(obj.path[-1]):
+							if succ not in q:
+								q.append(succ)	
 						
 
 	def deleteFromOpen(self, u, v):
@@ -100,12 +129,47 @@ class DRAGS:
 		Delete everything in opened that contains edge u,v
 		"""
 		for obj in self.opened:
-			if u in obj.path and v in obj.path and obj.path.index(u) + 1 == obj.path.index(v):
-				self.opened.remove(obj)
+			if u in obj.path and v in obj.path:
+				if obj.path.index(u) + 1 == obj.path.index(v):
+					self.opened.remove(obj)
+
+	def getWorsePaths(self, p, s):
+		out = []
+		for obj in s:
+			if dom(p, obj):
+				out.append(obj)
+
+		return out
 
 	def update_edge(self, u, v, newm, newv):
-		pass
+		self.deleteFromClosed(u, v)
+		self.deleteFromOpen(u, v)
 
+		temp = closed[v]
+
+		for p_u in closed[u]:
+			path = copy.deepcopy(p_u.path)
+			path.append(v)
+			mean = p_u.mean + self.get_mean(u,v)
+			var = p_u.var + self.get_var(u, v)
+			p_v = PathObject(path, mean, var)
+
+			
+			if self.setDomPath(p_v, temp):
+				#new path is bad
+				continue
+			else:
+				#new path is good
+				for p in self.getWorsePaths(p_v, temp):
+					self.deleteFromClosed(p.path[-2], p.path[-1])
+					self.deleteFromOpen(p.path[-2], p.path[-1])
+
+				temp.append(p_v)
+				heapq.heappush(self.opened, p_v)
+
+		return 
+
+	#=======================================================================================
 
 	def getBetterPathstoNode(self, node, p):
 		out = []
@@ -123,20 +187,21 @@ class DRAGS:
 
 			self.closed[cur_node].append(cur)
 			for path in self.getBetterPathstoNode(cur_node, cur):
+				print("bad")
 				#This should never run w/o memoization
 
 				#remove paths from closed and open
 				self.deleteFromClosed(path.path[-2], path.path[-1])
 				self.deleteFromOpened(path.path[-2], path.path[-1])
 
-			if cur_node != end:
+			if cur_node != self.end:
 
 				for succ in self.g.neighbors(cur_node):
 					if succ not in cur.path:
 						#path is acyclic
 
-						newm = cur.mean + get_mean(self.g, cur_node, succ)
-						newv = cur.var + get_var(self.g, cur_node, succ)
+						newm = cur.mean + self.get_mean(cur_node, succ)
+						newv = cur.var + self.get_var(cur_node, succ)
 						new_path = copy.deepcopy(cur.path)
 						new_path.append(succ)
 
@@ -146,10 +211,10 @@ class DRAGS:
 							#***check if this thing is not already in closed - do i need to do this?
 							heapq.heappush(self.opened, p)
 
-			if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, open_paths)[0]):
+			if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
 				break
 
-		if len(closed[end]) == 0:
+		if len(self.closed[self.end]) == 0:
 			print("No path to goal")
 			return []
 
@@ -157,7 +222,7 @@ class DRAGS:
 	# Take step loop
 	#===============================================================================================
 
-	def constructSubgraph(self):
+	def getGoodPathSubsets(self):
 		#contains a map of nodes to paths from them to the goal as well as the mean/var of those paths
 		#if closed is like g in a*, path_sets is like h in a*
 		path_sets = defaultdict(set)
@@ -183,6 +248,8 @@ class DRAGS:
 		self.path_sets = {}
 		for k,v in path_sets.items():
 			self.path_sets[k] = list(v)
+
+		self.nd_edges = nd_edges
 
 		return 
 
@@ -268,34 +335,95 @@ class DRAGS:
 	#=======================================================================
 
 	def take_step(self):
+		# time3 = time.time()
 		#check if need to make path sets
 		if self.updated:
 			self.getGoodPathSubsets()
 			self.updated = False
 
-		final = []
-		current = self.start
+		if self.current_pos == self.end:
+			print("reached goal")
+			return None
 
-		while current != self.end:
-			final.append(current)
-			# takestep()
-
-			nbrs = list(set([p.path[1] for p in self.path_sets[current] if p.path[1] not in final]))
-
-			next_node = self.comparePathSets(current, nbrs)
-			current = next_node
-
-		final.append(self.end)
-
-		# print_graph_2colors(graph, ns, nd_edges, final, 'r', 'b')
-
-		return final
+		# final = []
+		# current = self.start
 
 
+		# while current != self.end:
+		# final.append(current)
+		# takestep()
+
+		nbrs = list(set([p.path[1] for p in self.path_sets[self.current_pos] if p.path[1] not in self.path]))
+
+		next_node = self.comparePathSets(self.current_pos, nbrs)
+		self.current_pos = next_node
+
+		self.path.append(next_node)
+
+		# print("phase2 ", time.time() - time3)
+
+		# print_graph_2colors(self.g, self.vert_locs, self.nd_edges, final, 'r', 'b')
+
+		return next_node
 
 
 
+if __name__ == "__main__":
 
+	gg = gen.GraphGenerator(10, 10, 20)
+	graph, ns = gg.gen_graph(30, 40, 40)
+	nx.draw_networkx(graph, ns, edgelist = graph.edges)
+	plt.show()
+
+	d = DRAGS(graph, ns, 0, 29, 0.75)
+	time1 = time.time()
+	d.prune_graph()
+	time2 = time.time()
+	print("phase 1 ", time2 - time1)
+	# tuple1 = d.take_step()
+
+	node = d.take_step()
+	print(node)
+	while node != d.end:
+		node = d.take_step()
+		print(node)
+
+
+	# tuple2 = test.ragspath(graph, ns, 0, 29, 0.75)
+
+	# print("testing equality")
+	# paths1 = tuple1[1]
+	# paths2 = tuple2[1]
+	# for k,v in paths1.items():
+	# 	if k not in paths2.keys():
+	# 		print("not equal")
+	# 		break
+	# 	elif len(v) != len(paths2[k]):
+	# 		print("not equal 2")
+	# 		break
+		
+	# 	seen = False
+	# 	for i in v:
+
+	# 		for j in paths2[k]:
+	# 			if i.path == j.path:
+	# 				seen = True
+
+	# 	if not seen:
+	# 		print("not equal 3")
+	# 		break
+
+	# print("they are equal")
+
+	#spend 1 - 2 days on this from here
+	#if not this, then on sat night, choose something else
+	
+	#design an example that updates edges 
+		# how are updates found? - while following a path or by an oracle - two ways
+
+
+	#want to compare a certain amount of updates with replanning on updates
+	#want faster compute/comparable paths
 
 
 
