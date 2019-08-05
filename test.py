@@ -6,22 +6,22 @@ import scipy.integrate
 import copy
 from collections import defaultdict
 # import generate_graphs as gen
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import math
 import time
 
 threshold = 0.75
 
-def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
-    print("printing")
-    nx.draw_networkx(graph, ns, edgelist = graph.edges)
-    path = []
-    for i in range(1, len(final)):
-        path.append((final[i - 1], final[i]))
-    nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges), edge_color = color1)
-    nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
-    plt.axis('off')
-    plt.show(block=True)
+# def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
+#     print("printing")
+#     nx.draw_networkx(graph, ns, edgelist = graph.edges)
+#     path = []
+#     for i in range(1, len(final)):
+#         path.append((final[i - 1], final[i]))
+#     nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges), edge_color = color1)
+#     nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
+#     plt.axis('off')
+#     plt.show(block=True)
 
 class PathObject:
 	def __init__(self, path, mean ,var):

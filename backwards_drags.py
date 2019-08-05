@@ -70,7 +70,7 @@ class DRAGS:
 
 		self.closed = defaultdict(list)
 	
-		path0 = PathObject([start], 0, 0)
+		path0 = PathObject([end], 0, 0)
 		heapq.heappush(self.opened, path0)
 
 		self.updated = 1
@@ -99,7 +99,7 @@ class DRAGS:
 		return self.setDomPath(p, self.closed[last])
 
 	def betterPathToGoal(self, p):
-		return self.setDomPath(p, self.closed[self.end])
+		return self.setDomPath(p, self.closed[self.start])
 
 	#==========================================================================
 	#updation functions
@@ -118,11 +118,13 @@ class DRAGS:
 			cur = q.pop(0)
 			for obj in self.closed[cur]:
 				if u in obj.path and v in obj.path:
-					if  obj.path.index(u) + 1 == obj.path.index(v):
+					if  obj.path.index(v) + 1 == obj.path.index(u):
 						self.closed[obj.path[-1]].remove(obj)
-						for succ in self.g.successors(obj.path[-1]):
+						for succ in self.g.predecessors(obj.path[-1]):
 							if succ not in q:
 								q.append(succ)	
+
+
 						
 
 	def deleteFromOpen(self, u, v):
@@ -131,7 +133,7 @@ class DRAGS:
 		"""
 		for obj in self.opened:
 			if u in obj.path and v in obj.path:
-				if obj.path.index(u) + 1 == obj.path.index(v):
+				if obj.path.index(v) + 1 == obj.path.index(u):
 					self.opened.remove(obj)
 
 	def getWorsePaths(self, p, s):
@@ -190,24 +192,24 @@ class DRAGS:
 			cur_node = cur.path[-1]
 
 			self.closed[cur_node].append(cur)
-			for path in self.getBetterPathstoNode(cur_node, cur):
-				# print("bad")
-				#This should never run w/o memoization
+			# for path in self.getBetterPathstoNode(cur_node, cur):
+			# 	# print("bad")
+			# 	#This should never run w/o memoization
 
-				#remove paths from closed and open
-				self.deleteFromClosed(path.path[-2], path.path[-1])
-				self.deleteFromOpen(path.path[-2], path.path[-1])
+			# 	#remove paths from closed and open
+			# 	self.deleteFromClosed(path.path[-2], path.path[-1])
+			# 	self.deleteFromOpen(path.path[-2], path.path[-1])
 
-			if cur_node != self.end:
+			if cur_node != self.start:
 
-				for succ in self.g.neighbors(cur_node):
-					if succ not in cur.path:
+				for pred in self.g.predecessors(cur_node):
+					if pred not in cur.path:
 						#path is acyclic
 
-						newm = cur.mean + self.get_mean(cur_node, succ)
-						newv = cur.var + self.get_var(cur_node, succ)
+						newm = cur.mean + self.get_mean(pred, cur_node)
+						newv = cur.var + self.get_var(pred, cur_node)
 						new_path = copy.deepcopy(cur.path)
-						new_path.append(succ)
+						new_path.append(pred)
 
 						p = PathObject(new_path, newm, newv)
 
@@ -218,7 +220,7 @@ class DRAGS:
 			if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
 				break
 
-		if len(self.closed[self.end]) == 0:
+		if len(self.closed[self.start]) == 0:
 			print("No path to goal")
 			return []
 
@@ -232,7 +234,13 @@ class DRAGS:
 		path_sets = defaultdict(set)
 		nd_edges = set([])
 
-		for p in self.closed[self.end]:
+		temp = self.closed[self.start]
+		for obj in temp:
+			path = obj.path
+			list.reverse(path)
+			obj.path = path
+
+		for p in temp:
 			curm = p.mean
 			curv = p.var
 			path = p.path
@@ -243,6 +251,10 @@ class DRAGS:
 				if i < len(path) - 1:
 					curm -= self.g.edges[path[i-1], path[i]]['mean']
 					curv -= self.g.edges[path[i-1], path[i]]['var']
+
+					if curv <= 0:
+						curv = 0.1
+						print("bad")
 
 					path_sets[path[i]].add(PathObject(path[i:], curm, curv))
 
@@ -349,14 +361,6 @@ class DRAGS:
 		if self.current_pos == self.end:
 			print("reached goal")
 			return None
-
-		# final = []
-		# current = self.start
-
-
-		# while current != self.end:
-		# final.append(current)
-		# takestep()
 
 		nbrs = list(set([p.path[1] for p in self.path_sets[self.current_pos] if p.path[1] not in self.path]))
 
