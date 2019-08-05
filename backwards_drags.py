@@ -111,20 +111,25 @@ class DRAGS:
 		This needs to be optimized
 
 		"""
-		q = [v]
+		q = [u]
 		
+		removal = False
+		i = 0
 		while len(q) > 0:
-			# print(len(q))
+			i += 1
 			cur = q.pop(0)
+
 			for obj in self.closed[cur]:
 				if u in obj.path and v in obj.path:
 					if  obj.path.index(v) + 1 == obj.path.index(u):
+						removal = True
 						self.closed[obj.path[-1]].remove(obj)
-						for succ in self.g.predecessors(obj.path[-1]):
-							if succ not in q:
-								q.append(succ)	
+						for pred in self.g.predecessors(obj.path[-1]):
+							if pred not in q:
+								q.append(pred)	
 
-
+		print("del closed " ,i)
+		return removal
 						
 
 	def deleteFromOpen(self, u, v):
@@ -145,7 +150,10 @@ class DRAGS:
 		return out
 
 	def update_edge(self, u, v, newm, newv):
-		self.deleteFromClosed(u, v)
+		to_continue = self.deleteFromClosed(u, v)
+		if not to_continue:
+			return
+
 		self.deleteFromOpen(u, v)
 		print("cleaned")
 
@@ -186,7 +194,9 @@ class DRAGS:
 		return out
 
 	def prune_graph(self):
+		i = 0
 		while len(self.opened) > 0:
+			i += 1
 			cur = heapq.heappop(self.opened)
 		
 			cur_node = cur.path[-1]
@@ -219,6 +229,8 @@ class DRAGS:
 
 			if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
 				break
+
+		print("prune graph ", i)
 
 		if len(self.closed[self.start]) == 0:
 			print("No path to goal")
@@ -406,7 +418,8 @@ class DRAGS:
 				self.update_edge(edge[0], edge[1], meanvar[0], meanvar[1])
 				self.updated = True
 
-			self.prune_graph()
+			if len(updates) > 1:
+				self.prune_graph()
 
 			node = self.take_step()
 			#see if any nbr edges are different
