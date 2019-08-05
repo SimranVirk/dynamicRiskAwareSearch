@@ -234,10 +234,10 @@ class DRAGS:
 		path_sets = defaultdict(set)
 		nd_edges = set([])
 
-		temp = self.closed[self.start]
+		temp = copy.deepcopy(self.closed[self.start])
 		for obj in temp:
-			path = obj.path
-			list.reverse(path)
+			path = copy.deepcopy(obj.path)
+			path.reverse()
 			obj.path = path
 
 		for p in temp:
