@@ -76,15 +76,18 @@ def constructSubgraph(graph, closed, goal, start):
 	nd_edges = set([])
 
 	R.add_node(start)
+
+
 	for p in closed[goal]:
 		curm = p.mean
 		curv = p.var
 		path = p.path
 
-		path_sets[path[0]].add(p)
 
 		for i in range(1, len(path)):
-			if i < len(path) - 1:
+			if i == len(path) - 1:
+				path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
+			else:	
 				curm -= graph.edges[path[i-1], path[i]]['mean']
 				curv -= graph.edges[path[i-1], path[i]]['var']
 
@@ -92,7 +95,7 @@ def constructSubgraph(graph, closed, goal, start):
 					curv = 0.1
 					print("bad")
 
-				path_sets[path[i]].add(PathObject(path[i:], curm, curv))
+				path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
 
 			if path[i] not in R.nodes:
 				R.add_node(path[i])
@@ -107,6 +110,7 @@ def constructSubgraph(graph, closed, goal, start):
 	final_sets = {}
 	for k,v in path_sets.items():
 		final_sets[k] = list(v)
+
 	return (R, final_sets, nd_edges)		
 
 def get_successors(graph, node):
@@ -259,7 +263,7 @@ def takestep(G_nd, path_sets, current, path_soFar, end, totalcost):
 		return None
 
 
-	nbrs = list(set([p.path[1] for p in path_sets[current] if p.path[1] not in path_soFar]))
+	nbrs = list(set([p.path[0] for p in path_sets[current] if p.path[0] not in path_soFar]))
 	return  comparePathSets(G_nd, end, current, nbrs, path_sets)
 
 

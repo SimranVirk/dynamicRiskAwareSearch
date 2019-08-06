@@ -63,23 +63,26 @@ class DRAGS:
 		self.start = start
 		self.end = end
 		self.threshold = threshold
-		self.vert_locs = ns
+		self.vert_locs = ns #for drawing the graph
 
+		#open and closed
 		self.opened = []
 		heapq.heapify(self.opened)
-
-		self.closed = defaultdict(list)
-	
 		path0 = PathObject([end], 0, 0)
 		heapq.heappush(self.opened, path0)
 
-		self.updated = 1
-		self.nd_edges = []
-		self.path_sets = {}
+		self.closed = defaultdict(list)
 
+		#take_step structures
+		self.nd_edges = []
+		self.path_sets = {}	
+
+		#whether to re-generate above two structures
+		self.updated = 1
+
+		#the path that is taken
 		self.current_pos = self.start
 		self.path = [self.start]
-
 		self.cost = 0
 
 
@@ -101,6 +104,7 @@ class DRAGS:
 		return self.setDomPath(p, self.closed[last])
 
 	def betterPathToGoal(self, p):
+		#since it is backwards search, the goal is the current position
 		return self.setDomPath(p, self.closed[self.current_pos])
 
 	#==========================================================================
@@ -109,16 +113,11 @@ class DRAGS:
 	def deleteFromClosed(self, u, v):
 		"""
 		 Delete everythin in closed that contains edge u,v
-
-		This needs to be optimized
-
 		"""
 
 		#*** this is making the assumption that we only get updated information at the
 		#edges we touch
 
-		
-		# removal = False
 		removals = []
 		for i in range(len(self.closed[u])):
 			obj = self.closed[u][i]
@@ -128,7 +127,7 @@ class DRAGS:
 		for obj in removals:
 			self.closed[u].remove(obj)
 		
-		return len(removals) > 0
+		return
 						
 
 	def deleteFromOpen(self, u, v):
@@ -142,10 +141,9 @@ class DRAGS:
 				if obj.path.index(v) + 1 == obj.path.index(u):
 					removals.append(obj)
 
+
 		for obj in removals:
 			self.opened.remove(obj)
-
-		return
 
 
 
@@ -158,15 +156,8 @@ class DRAGS:
 		return out
 
 	def update_edge(self, u, v, newm, newv):
-		to_continue = self.deleteFromClosed(u, v)
-		if not to_continue:
-			return
-
+		self.deleteFromClosed(u, v)
 		self.deleteFromOpen(u, v)
-		# self.opened = []
-		# heapq.heapify(self.opened)
-		print("cleaned")
-
 		temp = self.closed[u]
 
 		for p_v in self.closed[v]:
@@ -212,6 +203,9 @@ class DRAGS:
 			cur_node = cur.path[-1]
 
 			self.closed[cur_node].append(cur)
+
+			#Removing this check because of assumption that edge changes are
+			#discovered when the edge is reached
 			# for path in self.getBetterPathstoNode(cur_node, cur):
 			# 	# print("bad")
 			# 	#This should never run w/o memoization
@@ -237,10 +231,8 @@ class DRAGS:
 							#***check if this thing is not already in closed - do i need to do this?
 							heapq.heappush(self.opened, p)
 
-			# if len(self.opened) > 0 and self.betterPathToGoal(heapq.nsmallest(1, self.opened)[0]):
-			# 	break
 
-		print("prune graph ", i)
+		print("prune graph ", i, " iterations")
 
 		if len(self.closed[self.current_pos]) == 0:
 			print("No path to goal")
@@ -249,6 +241,14 @@ class DRAGS:
 	#===============================================================================================
 	# Take step loop
 	#===============================================================================================
+
+	def printPathsets(self):
+		for k,v in self.path_sets.items():
+			print(k)
+			for path in v:
+				print(path.path, ", ", path.mean, ", ", path.var)
+
+		return
 
 	def getGoodPathSubsets(self):
 		#contains a map of nodes to paths from them to the goal as well as the mean/var of those paths
@@ -267,10 +267,10 @@ class DRAGS:
 			curv = p.var
 			path = p.path
 
-			path_sets[path[0]].add(p)
-
 			for i in range(1, len(path)):
-				if i < len(path) - 1:
+				if i == len(path) - 1:
+					path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
+				else:
 					curm -= self.g.edges[path[i-1], path[i]]['mean']
 					curv -= self.g.edges[path[i-1], path[i]]['var']
 
@@ -278,7 +278,7 @@ class DRAGS:
 						curv = 0.1
 						print("bad")
 
-					path_sets[path[i]].add(PathObject(path[i:], curm, curv))
+					path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
 
 				nd_edges.add((path[i-1], path[i]))
 
@@ -370,7 +370,6 @@ class DRAGS:
 
 					idx += 1
 
-			print("adding cost ", costs[min_node])
 			self.cost += costs[min_node]
 			return min_node
 
@@ -382,7 +381,6 @@ class DRAGS:
 		# time3 = time.time()
 		#check if need to make path sets
 		if self.updated:
-			print("updating")
 			self.getGoodPathSubsets()
 			self.updated = False
 
@@ -390,18 +388,14 @@ class DRAGS:
 			print("reached goal")
 			return None
 
-		nbrs = list(set([p.path[1] for p in self.path_sets[self.current_pos] if p.path[1] not in self.path]))
+		#all the next nodes in the paths starting at current pos, excluding the ones already in the
+		#path taken
+		nbrs = list(set([p.path[0] for p in self.path_sets[self.current_pos] if p.path[0] not in self.path]))
 
 		next_node = self.comparePathSets(self.current_pos, nbrs)
 
 		self.current_pos = next_node
-
-
 		self.path.append(next_node)
-
-		# print("phase2 ", time.time() - time3)
-
-		# print_graph_2colors(self.g, self.vert_locs, self.nd_edges, final, 'r', 'b')
 
 		return next_node
 
@@ -468,16 +462,17 @@ if __name__ == "__main__":
 	c1 = 0
 	c2 = 0
 	# for i in range(10):
-	gg = gen.GraphGenerator(10, 10, 20)
-	graph, ns = gg.gen_graph(30, 40, 40)
+
 	# nx.draw_networkx(graph, ns, edgelist = graph.edges)
 	# plt.show()
 
 	better = 0
 	bettercost  = 0
 	for i in range(10):
+		gg = gen.GraphGenerator(10, 10, 20)
+		graph, ns = gg.gen_graph(30, 40, 40)	
 		d = DRAGS(graph, ns, 0, 29, 0.75)
-		gg.getEdgeChanges(10)
+		gg.getEdgeChanges(30)
 
 		l1 = d.run(gg)
 		l2 = d.run_replan(gg)
