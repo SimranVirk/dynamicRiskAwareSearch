@@ -4,6 +4,7 @@ import random
 # import matplotlib.pyplot as plt
 import numpy as np
 import random
+import copy
 # import rags_test as rags 
 # from test import ragspath
 # from rags_test import find_path
@@ -16,6 +17,7 @@ class GraphGenerator:
 		self.radius_connect = radius_connect
 		self.g = nx.DiGraph()
 		self.changes = {}
+		self.changes1 = {}
 		return
 
 	def gen_graph(self, num_verts, max_w, max_h):
@@ -55,7 +57,7 @@ class GraphGenerator:
 
 				if dist < self.radius_connect and i != j:
 					mean = dist + random.randint(0, self.mean_max)
-					var = random.randint(0, self.var_max)
+					var = random.randint(1, self.var_max)
 					g.add_edge(i, j, mean = mean, var = var)
 
 
@@ -73,15 +75,25 @@ class GraphGenerator:
 			self.changes[edge].append(random.randint(0, self.mean_max))
 			self.changes[edge].append(random.randint(0, self.var_max))
 
+		self.changes1 = copy.deepcopy(self.changes)
 
-	def changeEdge(self, edge):
+
+	def changedEdge(self, edge):
 		"""
 			Change edge u,v according to the stored changes
 		"""
-		meanvar = self.changes[edge]
-		self.g.edges[edge[0], edge[1]]["mean"] = meanvar[0]
-		self.g.edges[edge[0], edge[1]]["var"] = meanvar[1]
+		x = self.changes.pop(edge, None)
+		if x == None:
+			print("ERROR removing change")
 
+
+	def changedEdge1(self, edge):
+		"""
+			Change edge u,v according to the stored changes
+		"""
+		x = self.changes1.pop(edge, None)
+		if x == None:
+			print("ERROR removing change")
 
 
 # test = GraphGenerator(20, 5, 15)

@@ -9,6 +9,7 @@ from collections import defaultdict
 # import matplotlib.pyplot as plt
 import math
 import time
+import copy
 
 threshold = 0.75
 
@@ -77,8 +78,17 @@ def constructSubgraph(graph, closed, goal, start):
 
 	R.add_node(start)
 
+	#if backwards -
+	temp = copy.deepcopy(closed[start])
+	for obj in temp:
+		path = copy.deepcopy(obj.path)
+		path.reverse()
+		obj.path = path
 
-	for p in closed[goal]:
+	#if forwards - 
+	# temp = closed[goal]
+
+	for p in temp:
 		curm = p.mean
 		curv = p.var
 		path = p.path
@@ -158,17 +168,26 @@ def prob_comparator(x, paths, node1, node2, cost1, cost2):
 
 
 def comparePathSets(g, end, current, nbrs, paths):
+	out = []
 
 	if len(nbrs) == 0:
 		print("ERROR 0 neighbors")
 		return None
 
 	if len(nbrs) == 1:
-		return nbrs[0], max(0, np.random.normal(g.edges[current, nbrs[0]]["mean"], g.edges[current, nbrs[0]]["var"]))
+		out.append(nbrs[0])
+		out.append(max(0, np.random.normal(g.edges[current, nbrs[0]]["mean"], g.edges[current, nbrs[0]]["var"])))
+		out.append(g.edges[current, nbrs[0]]["mean"])
+		out.append(g.edges[current, nbrs[0]]["var"])
+		return out
 
 	#should compare the concrete cost of the end with the expected cost of another path to it. for now just go to end - this will cause problems
 	if end in nbrs:
-		return end, max(0, np.random.normal(g.edges[current, end]["mean"], g.edges[current, end]["var"]))
+		out.append(end)
+		out.append(max(0, np.random.normal(g.edges[current, end]["mean"], g.edges[current, end]["var"])))
+		out.append(g.edges[current, end]["mean"])
+		out.append(g.edges[current, end]["var"])
+		return out
 
 	else:
 
@@ -198,14 +217,59 @@ def comparePathSets(g, end, current, nbrs, paths):
 
 				idx += 1
 
-		out = []
 		out.append(min_node)
 		out.append(costs[min_node])
+		out.append(g.edges[current, min_node]["mean"])
+		out.append(g.edges[current, min_node]["var"])
 		return out
 
 
 
 #=======================================================================
+
+def backward_phase1(graph, start, end):
+	open_paths = []
+	heapq.heapify(open_paths)
+	closed = defaultdict(list)
+
+	path0 = PathObject([end], 0, 0)
+	heapq.heappush(open_paths, path0)
+
+	i = 0	
+
+	while len(open_paths) > 0:
+		i += 1
+		cur = heapq.heappop(open_paths)
+		
+		cur_node = cur.path[-1]
+		closed[cur_node].append(cur)
+
+		if cur_node != start:
+
+			for pred in graph.predecessors(cur_node):
+				if pred not in cur.path:
+					#path is acyclic
+
+					newm = cur.mean + get_mean(graph, pred, cur_node)
+					newv = cur.var + get_var(graph, pred,  cur_node)
+					new_path = copy.deepcopy(cur.path)
+					new_path.append(pred)
+
+					p = PathObject(new_path, newm, newv)
+
+					if not betterPathToNode(closed, p):
+						heapq.heappush(open_paths, p)
+
+		if len(open_paths) > 0 and betterPathToGoal(closed, start, heapq.nsmallest(1, open_paths)[0]):
+			break
+
+	if len(closed[start]) == 0:
+		print("No path to goal")
+		return []
+
+	print("prune graph ",i)
+
+	return closed
 
 
 def phase1(graph, start, end):
@@ -262,8 +326,8 @@ def takestep(G_nd, path_sets, current, path_soFar, end, totalcost):
 		print("reached goal")
 		return None
 
-
 	nbrs = list(set([p.path[0] for p in path_sets[current] if p.path[0] not in path_soFar]))
+
 	return  comparePathSets(G_nd, end, current, nbrs, path_sets)
 
 
@@ -278,7 +342,12 @@ def printPathsets(path_sets):
 
 def run(graph, start, end, gg):
 	totalcost = 0
-	closed = phase1(graph, start, end)
+	mean_cost = 0
+	var_cost = 0
+
+	time0 = time.time()
+	closed = backward_phase1(graph, start, end)
+	# closed = phase1(graph, start, end)
 	time1 = time.time()
 
 	#Make the graph
@@ -286,8 +355,11 @@ def run(graph, start, end, gg):
 	path_soFar = [start]
 	current = start
 
-	node, cost = takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
+	node, cost, mc, vc = takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
 	totalcost += cost
+	mean_cost += mc
+	var_cost += vc
+
 	path_soFar.append(node)
 	current = node
 	print("next path node ", node)
@@ -297,28 +369,40 @@ def run(graph, start, end, gg):
 	while current != end:
 
 		replan = False
-		for edge in gg.changes.keys():
-			if edge[0] == node:
-				print("updating bc of edge ", edge)
+		updates = []
+		for edge in gg.changes1.keys():
+			if edge[0] in graph.successors(current):
+				# print("updating bc of edge ", edge)
+				updates.append(edge)
 				replan = True
+
+		for edge in updates:
+			gg.changedEdge1(edge)
+
 
 		if replan:
 			update_ctr += 1
-			closed = phase1(graph, current, end)
+			closed = backward_phase1(graph, current, end)
+			# closed = phase1(graph, current, end)
 			G_nd, path_sets, nd_edges = constructSubgraph(graph, closed, end, current)
 
-		node, cost =  takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
+		node, cost, mc, vc =  takestep(G_nd, path_sets, current, path_soFar, end, totalcost)
 		totalcost += cost
+		mean_cost += mc
+		var_cost += vc
+		
 		path_soFar.append(node)
 		current = node
 		print("next path node ", node)
 
 
-	total = time.time() - time1
+	end_time = time.time()
+	total_time = end_time - time0
+	replan_time = end_time - time1
 	print("\n\n================")
-	print("time: ", total, "updates: ", update_ctr, "cost: ", totalcost)
+	print("replan time: ", replan_time, "updates: ", update_ctr, "cost: ", totalcost)
 
-	return total, update_ctr, totalcost
+	return total_time, replan_time, update_ctr, totalcost, mean_cost, var_cost
 
 # # for i in range(20):
 # test = gen.GraphGenerator(10, 10, 20)
