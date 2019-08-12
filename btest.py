@@ -479,19 +479,13 @@ class DRAGS:
 		return next_node
 
 	#=============================================================================
-	def run(self, gg, ):
+	def run(self, gg):
 		time0 = time.time()
 		x = self.prune_graph()
-		memo =len(self.closed[self.current_pos]) 
 		print(len(self.closed[self.current_pos]), "paths")
 		if x == []:
 			return [-1 for i in range(6)]
 		time1 = time.time()
-
-		for path in self.closed[self.current_pos]:
-			print(path.path)
-
-
 
 		node = self.take_step()
 		# print("next path node ", node)
@@ -540,7 +534,7 @@ class DRAGS:
 
 		print("heap", self.heap_ops, "paths ", self.path_expansions)
 
-		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.path_expansions, self.heap_ops, self.paths_considered, memo
+		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.path_expansions, self.heap_ops, self.paths_considered
 
 
 	def run_replan(self, gg, graph):
@@ -557,8 +551,8 @@ if __name__ == "__main__":
 
 	num_nodes = 30
 	total_num_edges = 0
-	num_changes = 5
-	iters = 20
+	num_changes = 20
+	iters = 10
 	start_goal_disconnected = 0
 
 
@@ -581,7 +575,7 @@ if __name__ == "__main__":
 	better = 0
 	bettercost  = 0
 
-	with open('results/updated/final_%d_%d.csv' % (num_nodes, num_changes), 'a', newline = '') as csvfile:
+	with open('results/updated/updated_%d_%d.csv' % (num_nodes, num_changes), 'a', newline = '') as csvfile:
 
 		fieldnames = ['num_nodes', 'num_edges', 'threshold', 'num_edges_changed', 
 	'd_totaltime', 'd_replantime', 'd_cost', 'd_meancost', 'd_varcost', 'd_numupdates',
@@ -597,6 +591,7 @@ if __name__ == "__main__":
 		for i in range(iters):
 			print("iteration ", i)
 			gg = gen.GraphGenerator(10, 10)
+			# graph, ns = gg.gen_graph(num_nodes, 10, 10, 20)
 			graph = gg.load_graph(num_nodes, i)
 			ns = []
 			# nx.draw_networkx_edges(graph, ns, edgelist = graph.edges, arrowsize = 2)

@@ -414,9 +414,6 @@ class RAGS:
 			return [-1 for i in range(8)]
 
 		print(len(self.closed[self.current_pos]), "paths")
-		for path in self.closed[self.current_pos]:
-			print(path.path)
-		memo = len(self.closed[self.current_pos])
 		time1 = time.time()
 
 		#Make the graph

@@ -29,8 +29,8 @@ class GraphGenerator:
 		g.add_nodes_from(range(num_verts))
 		node_locs = {}
 		attr = {}
-		max_w = num_verts
-		max_h = num_verts
+		max_w = num_verts + 10
+		max_h = num_verts + 10
 		seen_locs = [[0,0], [max_w, max_h]]
 
 		
@@ -67,7 +67,7 @@ class GraphGenerator:
 					g.add_edge(i, j, mean = mean, var = var)
 
 
-		# self.g = g
+		self.g = g
 		return g, attr
 
 
@@ -114,7 +114,8 @@ class GraphGenerator:
 
 if __name__ == "__main__":
 	gg = GraphGenerator(10, 10)
-	gg.gen_graphs(20, 30, 10, 10, 20, save = True)
+	for i in [20,25,30,35,40]:
+		gg.gen_graphs(20, 30, 10, 10, 20, save = True)
 	# graph = gg.load_graph(20, 1)
 	# print(graph.edges(data = True))
 
