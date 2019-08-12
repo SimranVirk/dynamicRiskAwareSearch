@@ -56,7 +56,7 @@ class GraphGenerator:
 				dist = np.linalg.norm(g.nodes[i]['loc'] - g.nodes[j]['loc'])
 
 				if dist < self.radius_connect and i != j:
-					mean = dist + random.randint(0, self.mean_max)
+					mean = (dist % 0.01) + random.randint(0, self.mean_max)
 					var = random.randint(1, self.var_max)
 					g.add_edge(i, j, mean = mean, var = var)
 
@@ -94,6 +94,13 @@ class GraphGenerator:
 		x = self.changes1.pop(edge, None)
 		if x == None:
 			print("ERROR removing change")
+
+	def save_graph():
+		nx.write_edgelist(self.g, "graph_files/10.edgelist", data = ['mean', 'var'])
+
+	def load_graph():
+		self.g = nx.read_edgelist("graph_files/10.edgelist", create_using = nx.DiGraph(), nodetype = int, data = ['mean', 'var'])
+
 
 
 # test = GraphGenerator(20, 5, 15)

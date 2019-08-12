@@ -6,7 +6,7 @@ import scipy.integrate
 import copy
 from collections import defaultdict
 # import generate_graphs as gen
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import math
 import time
 import copy
@@ -16,16 +16,27 @@ threshold = 0.75
 # heap_ops = 0
 # paths_considered = 0
 
-# def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
-#     print("printing")
-#     nx.draw_networkx(graph, ns, edgelist = graph.edges)
-#     path = []
-#     for i in range(1, len(final)):
-#         path.append((final[i - 1], final[i]))
-#     nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges), edge_color = color1)
-#     nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
-#     plt.axis('off')
-#     plt.show(block=True)
+def print_graph_2colors(graph, ns, nd_edges, color1):
+    print("printing")
+    nx.draw_networkx_edges(graph, ns, edgelist = graph.edges, arrowsize = 2, node_size = 100)
+    path = []
+    # for i in range(1, len(final)):
+    #     path.append((final[i - 1], final[i]))
+    nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges),  arrowsize = 2, edge_color = color1, width = 1.5, node_size = 100)
+    # nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2)
+    plt.axis('off')
+    plt.show(block=True)
+
+def print_graph_3colors(graph, ns, nd_edges, color1, final, color2):
+    print("printing")
+    nx.draw_networkx_edges(graph, ns, edgelist = graph.edges, arrowsize = 2, node_size = 100)
+    path = []
+    for i in range(1, len(final)):
+        path.append((final[i - 1], final[i]))
+    nx.draw_networkx_edges(graph, ns, edgelist = list(nd_edges),  arrowsize = 2, edge_color = color1, width = 1.5, node_size = 100)
+    nx.draw_networkx_edges(graph, ns, edgelist = path, edge_color = color2, arrowsize = 2, node_size = 100, width = 2)
+    plt.axis('off')
+    plt.show(block=True)
 
 class PathObject:
 	def __init__(self, path, mean ,var):
@@ -61,10 +72,11 @@ def dom(p1, p2):
 
 class RAGS:
 
-	def __init__(self, graph, start, end):
+	def __init__(self, graph,ns, start, end):
 		self.g = graph
 		self.current_pos = start
 		self.end = end
+		self.ver_locs = ns
 
 		#metrics
 		self.paths_expanded = 0
@@ -87,6 +99,9 @@ class RAGS:
 		self.cost = 0
 		self.mean_cost = 0
 		self.var_cost = 0
+
+		self.first_plan = True
+		self.nd_edges = []
 
 
 	def init_strs(self):
@@ -166,6 +181,8 @@ class RAGS:
 			final_sets[k] = list(v)
 
 		self.path_sets = final_sets
+		# print_graph_2colors(self.g, self.ver_locs, nd_edges, 'r')
+
 	
 
 	def get_successors(self, node):
@@ -312,7 +329,6 @@ class RAGS:
 		self.paths_expanded += i
 
 
-
 	# def phase1(graph, start, end):
 
 	# 	#Phase 1 - pruning
@@ -398,12 +414,15 @@ class RAGS:
 			return [-1 for i in range(8)]
 
 		print(len(self.closed[self.current_pos]), "paths")
+		for path in self.closed[self.current_pos]:
+			print(path.path)
+		memo = len(self.closed[self.current_pos])
 		time1 = time.time()
 
 		#Make the graph
 
 		node = self.takestep()
-		print("next path node ", node)
+		# print("next path node ", node)
 
 		update_ctr = 0
 
@@ -431,12 +450,16 @@ class RAGS:
 			print("next path node ", node)
 
 
+		# print_graph_3colors(self.g, self.ver_locs, self.nd_edges, 'r', self.path, 'b')
+
 		end_time = time.time()
 		total_time = end_time - time0
 		replan_time = end_time - time1
 		print("\n\n================")
 		print("replan time: ", replan_time, "updates: ", update_ctr, "cost: ", self.cost)
 
+
+		print("heap", self.heap_ops, "paths ", self.paths_expanded)
 		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.paths_expanded, self.heap_ops, self.paths_considered
 
 
