@@ -1,30 +1,36 @@
 #Generate large graphs
 import networkx as nx
 import random
-# import matplotlib.pyplot as plt
 import numpy as np
 import random
 import copy
-# import rags_test as rags 
-# from test import ragspath
-# from rags_test import find_path
+
 
 class GraphGenerator:
-	def __init__(self, mean_max, var_max, radius_connect):
-		self.graphnum = 0
+	def __init__(self, mean_max, var_max):
+		self.g = None
+		self.changes = None
+		self.changes1 = None
+
 		self.mean_max = mean_max
 		self.var_max = var_max
-		self.radius_connect = radius_connect
-		self.g = nx.DiGraph()
-		self.changes = {}
-		self.changes1 = {}
 		return
 
-	def gen_graph(self, num_verts, max_w, max_h):
+	def gen_graphs(self, num_graphs, num_verts, mean_max, var_max, radius_connect, save = False):
+		for i in range(num_graphs):
+			g, ns = self.gen_graph(num_verts, mean_max, var_max, radius_connect)
+			# print(g.edges(data = True))
+
+			if save:
+				self.save_graph(g, num_verts, i)
+
+	def gen_graph(self, num_verts, mean_max, var_max, radius_connect):
 		g = nx.DiGraph()
 		g.add_nodes_from(range(num_verts))
 		node_locs = {}
 		attr = {}
+		max_w = num_verts
+		max_h = num_verts
 		seen_locs = [[0,0], [max_w, max_h]]
 
 		
@@ -55,13 +61,13 @@ class GraphGenerator:
 			for j in g.nodes:
 				dist = np.linalg.norm(g.nodes[i]['loc'] - g.nodes[j]['loc'])
 
-				if dist < self.radius_connect and i != j:
-					mean = (dist % 0.01) + random.randint(0, self.mean_max)
-					var = random.randint(1, self.var_max)
+				if dist < radius_connect and i != j:
+					mean = int(dist)  + random.randint(0, mean_max)
+					var = random.randint(1, var_max)
 					g.add_edge(i, j, mean = mean, var = var)
 
 
-		self.g = g
+		# self.g = g
 		return g, attr
 
 
@@ -69,6 +75,9 @@ class GraphGenerator:
 		"""
 			Create a set of edges to change and their final mean and variances
 		"""
+		self.changes = {}
+		self.changes1 = {}
+
 		edgesToChange = random.sample(self.g.edges, num_changes)
 		for edge in edgesToChange:
 			self.changes[edge] = []
@@ -95,21 +104,17 @@ class GraphGenerator:
 		if x == None:
 			print("ERROR removing change")
 
-	def save_graph():
-		nx.write_edgelist(self.g, "graph_files/10.edgelist", data = ['mean', 'var'])
+	def save_graph(self, graph, num_verts, graph_number):
+		nx.write_edgelist(graph, "graph_files/%d_nodes/graph%d.edgelist" % (num_verts, graph_number), data = ['mean', 'var'])
 
-	def load_graph():
-		self.g = nx.read_edgelist("graph_files/10.edgelist", create_using = nx.DiGraph(), nodetype = int, data = ['mean', 'var'])
+	def load_graph(self, num_verts, graph_number):
+		graph_read = nx.read_edgelist("graph_files/%d_nodes/graph%d.edgelist" % (num_verts, graph_number), create_using = nx.DiGraph(), nodetype = int, data = (('mean', int), ('var', int)))
+		self.g = graph_read
+		return graph_read
 
-
-
-# test = GraphGenerator(20, 5, 15)
-# graph, ns = test.gen_graph(20, 30, 30)
-# nx.draw_networkx(graph, ns, edgelist = graph.edges)
-# nx.draw_networkx(graph, with_labels = False)
-
-# # plt.axis('off')
-# plt.show(block=True)  
-# print(find_path(graph, 0, 19, 0.6))
-# print(rags(graph, 0, 19, 0.9))
+if __name__ == "__main__":
+	gg = GraphGenerator(10, 10)
+	gg.gen_graphs(20, 30, 10, 10, 20, save = True)
+	# graph = gg.load_graph(20, 1)
+	# print(graph.edges(data = True))
 
