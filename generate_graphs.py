@@ -114,8 +114,8 @@ class GraphGenerator:
 
 if __name__ == "__main__":
 	gg = GraphGenerator(10, 10)
-	for i in [20,25,30,35,40]:
-		gg.gen_graphs(20, 30, 10, 10, 20, save = True)
+	for i in [35,40]:
+		gg.gen_graphs(20, i, 10, 10, 20, save = True)
 	# graph = gg.load_graph(20, 1)
 	# print(graph.edges(data = True))
 

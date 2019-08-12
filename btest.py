@@ -549,10 +549,10 @@ class DRAGS:
 
 if __name__ == "__main__":
 
-	num_nodes = 30
+	num_nodes = 40
 	total_num_edges = 0
-	num_changes = 20
-	iters = 10
+	num_changes = 5
+	# iters = 20
 	start_goal_disconnected = 0
 
 
@@ -588,7 +588,7 @@ if __name__ == "__main__":
 
 
 
-		for i in range(iters):
+		for i in range(20):
 			print("iteration ", i)
 			gg = gen.GraphGenerator(10, 10)
 			# graph, ns = gg.gen_graph(num_nodes, 10, 10, 20)
