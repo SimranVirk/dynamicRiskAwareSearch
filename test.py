@@ -115,6 +115,7 @@ class RAGS:
 
 
 	def betterPathToNode(self, p):
+		self.closed_accesses += 1
 		last = p.path[-1]
 		for i in self.closed[last]:
 			if dom(i, p):
@@ -122,6 +123,7 @@ class RAGS:
 		return False
 
 	def betterPathToGoal(self, p):
+		self.closed_accesses += 1
 		for i in self.closed[self.current_pos]:
 			if dom(i, p):
 				return True
@@ -132,6 +134,7 @@ class RAGS:
 		#contains a map of nodes to paths from them to the goal as well as the mean/var of those paths
 		#if closed is like g in a*, path_sets is like h in a*
 		path_sets = defaultdict(set)
+		raw_paths = defaultdict(list)
 		nd_edges = set([])
 
 		# R.add_node(start)
@@ -155,7 +158,9 @@ class RAGS:
 
 			for i in range(1, len(path)):
 				if i == len(path) - 1:
-					path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
+					if path[i:] not in raw_paths[path[i - 1]]:
+						path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
+						raw_paths[path[i - 1]].append(path[i:])
 				else:	
 					curm -= self.get_mean(path[i - 1], path[i])
 					curv -= self.get_var(path[i - 1], path[i])
@@ -164,8 +169,9 @@ class RAGS:
 						curv = 0.1
 						print("bad")
 
-					path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
-
+					if path[i:] not in raw_paths[path[i - 1]]:
+						path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
+						raw_paths[path[i - 1]].append(path[i:])
 				# if path[i] not in R.nodes:
 					# R.add_node(path[i])
 
@@ -232,6 +238,8 @@ class RAGS:
 	def comparePathSets(self, current, nbrs):
 
 		if len(nbrs) == 0:
+			self.printPathsets()
+			print(self.path)
 			print("ERROR 0 neighbors")
 			return None
 
@@ -299,7 +307,10 @@ class RAGS:
 			self.heap_ops += 1
 			
 			cur_node = cur.path[-1]
-			self.closed[cur_node].append(cur)
+			if not self.betterPathToNode(cur):
+				self.closed[cur_node].append(cur)
+			else:
+				continue
 
 			if cur_node != self.current_pos:
 

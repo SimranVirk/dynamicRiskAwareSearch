@@ -99,6 +99,10 @@ class DRAGS:
 		self.mean_cost = 0
 		self.var_cost = 0
 
+	def get_closed(self, node):
+		self.closed_accesses += 1
+		return self.closed[node]
+
 	def get_mean(self, node1, node2):
 		return self.g.edges[node1, node2]['mean']
 
@@ -114,11 +118,11 @@ class DRAGS:
 
 	def betterPathToNode(self, p):
 		last = p.path[-1]
-		return self.setDomPath(p, self.closed[last])
+		return self.setDomPath(p, self.get_closed(last))
 
 	def betterPathToGoal(self, p):
 		#since it is backwards search, the goal is the current position
-		return self.setDomPath(p, self.closed[self.current_pos])
+		return self.setDomPath(p, self.get_closed(self.current_pos))
 
 	#==========================================================================
 	#updation functions
@@ -134,7 +138,8 @@ class DRAGS:
 
 		#rmove from the goal
 		removals = []
-		for p in self.closed[self.current_pos]:
+		current_closed = self.get_closed(self.current_pos)
+		for p in current_closed:
 			if u in p.path and v in p.path:
 				if p.path.index(u) == p.path.index(v) + 1:
 					removals.append(p)
@@ -143,7 +148,8 @@ class DRAGS:
 
 		#remove from u
 		removals = []
-		for p in self.closed[u]:
+		u_closed = self.get_closed(u)
+		for p in u_closed:
 			if len(p.path) < 2:
 				continue
 			if p.path[-2] == v:
@@ -163,8 +169,8 @@ class DRAGS:
 			seen.append(cur)
 			removals = []
 
-
-			for p in self.closed[cur]:
+			cur_closed = self.get_closed(cur)
+			for p in cur_closed:
 				if u in p.path and v in p.path:
 					if p.path.index(u) == p.path.index(v) + 1:
 						removals.append(p)
@@ -193,6 +199,7 @@ class DRAGS:
 
 
 		for obj in removals:
+			self.heap_ops += 1
 			self.opened.remove(obj)
 
 
@@ -206,15 +213,15 @@ class DRAGS:
 
 	
 	def update_edge(self, u, v):
-		# print("updating", u, v)
-
 		self.deleteFromClosed(u, v)
 		self.deleteFromOpen(u, v)
 
 
-		temp = self.closed[u]
+		temp = self.get_closed(u)
+		removed = False
 
-		for p_v in self.closed[v]:
+		v_closed = self.get_closed(v)
+		for p_v in v_closed:
 			path = copy.deepcopy(p_v.path)
 			path.append(u)
 			mean = p_v.mean + self.get_mean(u,v)
@@ -224,6 +231,8 @@ class DRAGS:
 			
 			if self.setDomPath(p_u, temp):
 				#new path is bad
+
+				removed = True
 				continue
 			else:
 				#new path is good
@@ -235,7 +244,34 @@ class DRAGS:
 				heapq.heappush(self.opened, p_u)
 				self.heap_ops += 1
 
+		paths_u = [p.path for p in temp]
+		potential_additions = []
+		heapq.heapify(potential_additions)
+
+		if removed:
+			for node in self.g.successors(u):
+				closed_node = self.get_closed(node)
+				for path in closed_node:
+					check = copy.deepcopy(path.path)
+					check.append(u)
+					if check not in paths_u:
+						mean = path.mean + self.get_mean(u, node)
+						var = path.var + self.get_var(u, node)
+						p_u = PathObject(check, mean, var)
+
+						heapq.heappush(potential_additions, p_u)
+
+		while len(potential_additions) > 0:
+			p_next = heapq.heappop(potential_additions)
+			if self.setDomPath(p_next, temp):
+				break
+			else:
+				temp.append(p_next)
+				heapq.heappush(self.opened, p_next)
+
+
 		self.closed[u] = temp
+
 
 
 
@@ -245,7 +281,8 @@ class DRAGS:
 
 	def getBetterPathstoNode(self, node, p):
 		out = []
-		for obj in self.closed[node]:
+		node_closed = self.get_closed(node)
+		for obj in node_closed:
 			if dom(p, obj):
 				out.append(obj)
 
@@ -307,6 +344,7 @@ class DRAGS:
 	#===============================================================================================
 
 	def printPathsets(self):
+		print("print path sets")
 		for k,v in self.path_sets.items():
 			print(k)
 			for path in v:
@@ -318,6 +356,7 @@ class DRAGS:
 		#contains a map of nodes to paths from them to the goal as well as the mean/var of those paths
 		#if closed is like g in a*, path_sets is like h in a*
 		path_sets = defaultdict(set)
+		raw_paths = defaultdict(list)
 		nd_edges = set([])
 
 		#***sometimes this messes up and has multiple of the same path
@@ -336,8 +375,9 @@ class DRAGS:
 
 			for i in range(1, len(path)):
 				if i == len(path) - 1:
-					path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
-
+					if path[i:] not in raw_paths[path[i - 1]]:
+						path_sets[path[i - 1]].add(PathObject(path[i:], 0, 0.1))
+						raw_paths[path[i - 1]].append(path[i:])
 				else:
 
 					curm -= self.get_mean(path[i - 1], path[i])
@@ -350,7 +390,9 @@ class DRAGS:
 						print("path ", p.path, "edge for next iter (should be last edge)", path[i], path[i + 1])
 						print(self.g.edges[path[i], path[i + 1]]['var'])
 
-					path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
+					if path[i:] not in raw_paths[path[i - 1]]:
+						path_sets[path[i - 1]].add(PathObject(path[i:], curm, curv))
+						raw_paths[path[i - 1]].append(path[i:])
 
 				nd_edges.add((path[i-1], path[i]))
 
@@ -401,6 +443,8 @@ class DRAGS:
 
 		if len(nbrs) == 0:
 			print("ERROR 0 neighbors for node ", current)
+			self.printPathsets()
+			print(self.path)
 			return None
 
 		if len(nbrs) == 1:
@@ -488,7 +532,7 @@ class DRAGS:
 		time1 = time.time()
 
 		node = self.take_step()
-		# print("next path node ", node)
+		print("next path node ", node)
 
 		update_ctr = 0
 
@@ -521,7 +565,7 @@ class DRAGS:
 
 			node = self.take_step()
 			#see if any nbr edges are different
-			# print("next path node ",node)
+			print("next path node ",node)
 
 
 		time_end = time.time()
@@ -549,10 +593,10 @@ class DRAGS:
 
 if __name__ == "__main__":
 
-	num_nodes = 40
+	num_nodes = 100
 	total_num_edges = 0
 	num_changes = 5
-	# iters = 20
+	iters = 10
 	start_goal_disconnected = 0
 
 
@@ -575,78 +619,79 @@ if __name__ == "__main__":
 	better = 0
 	bettercost  = 0
 
-	with open('results/updated/updated_%d_%d.csv' % (num_nodes, num_changes), 'a', newline = '') as csvfile:
+	# with open('results/speedup_test/updated_%d_%d.csv' % (num_nodes, num_changes), 'a', newline = '') as csvfile:
 
-		fieldnames = ['num_nodes', 'num_edges', 'threshold', 'num_edges_changed', 
-	'd_totaltime', 'd_replantime', 'd_cost', 'd_meancost', 'd_varcost', 'd_numupdates',
-	'd_paths_expanded', 'd_heap_ops', 'd_paths_considered',
-	'r_totaltime', 'r_replantime', 'r_cost', 'r_meancost', 'r_varcost', 'r_numupdates',
-	'r_paths_expanded', 'r_heap_ops', 'r_paths_considered']
-		writer = csv.DictWriter(csvfile, fieldnames = fieldnames)
+	# 	fieldnames = ['num_nodes', 'num_edges', 'threshold', 'num_edges_changed', 
+	# 'd_totaltime', 'd_replantime', 'd_cost', 'd_meancost', 'd_varcost', 'd_numupdates',
+	# 'd_paths_expanded', 'd_heap_ops', 'd_paths_considered',
+	# 'r_totaltime', 'r_replantime', 'r_cost', 'r_meancost', 'r_varcost', 'r_numupdates',
+	# 'r_paths_expanded', 'r_heap_ops', 'r_paths_considered']
+	# 	writer = csv.DictWriter(csvfile, fieldnames = fieldnames)
 
-		writer.writeheader()
-
-
-
-		for i in range(20):
-			print("iteration ", i)
-			gg = gen.GraphGenerator(10, 10)
-			# graph, ns = gg.gen_graph(num_nodes, 10, 10, 20)
-			graph = gg.load_graph(num_nodes, i)
-			ns = []
-			# nx.draw_networkx_edges(graph, ns, edgelist = graph.edges, arrowsize = 2)
-			# plt.axis('off')
-			# plt.show()
-
-
-			num_edges = len(graph.edges)
-			total_num_edges += num_edges
-			print(num_edges, " edges")
-
-			graph_copy = copy.deepcopy(graph)
-			d = DRAGS(graph_copy, ns, 0, num_nodes - 1, 0.75)
-			gg.getEdgeChanges(int(num_edges / num_changes))
-			print(num_edges/ num_changes, " edge changes")
-
-			l2 = d.run_replan(gg, graph)
-			if l2[0] == -1:
-				start_goal_disconnected += 1
-				continue
-
-			l1 = d.run(gg)
-
-			t1 += l1[0]
-			rt1 += l1[1]
-			u1 += l1[5]
-
-			t2 += l2[0]
-			rt2 += l2[1]
-			u2 += l2[5]
-
-			c1 += l1[2]
-			c2 += l2[2]
-
-
-			writer.writerow({'num_nodes': num_nodes, 'num_edges' : total_num_edges, 
-					'threshold': threshold, 'num_edges_changed': num_changes, 
-					'd_totaltime': l1[0], 'd_replantime': l1[1], 'd_cost': l1[2], 'd_meancost': l1[3], 'd_varcost': l1[4], 'd_numupdates': l1[5],
-			'd_paths_expanded': l1[6], 'd_heap_ops': l1[7], 'd_paths_considered': l1[8],
-			'r_totaltime': l2[0], 'r_replantime': l2[1], 'r_cost': l2[2], 'r_meancost': l2[3], 'r_varcost': l2[4], 'r_numupdates': l2[5],
-			'r_paths_expanded': l2[6], 'r_heap_ops': l2[7], 'r_paths_considered': l2[8]})
+	# 	writer.writeheader()
 
 
 
-			if l1[1] < l2[1]:
-				better += 1
+	for i in range(iters):
+		print("iteration ", i)
+		gg = gen.GraphGenerator(10, 10)
+		graph, ns = gg.gen_graph(num_nodes, 10, 10, 20)
+		# graph = gg.load_graph(num_nodes, i)
+		ns = []
+		# nx.draw_networkx_edges(graph, ns, edgelist = graph.edges, arrowsize = 2)
+		# plt.axis('off')
+		# plt.show()
 
-			if l1[3] < l2[3]:
-				bettercost += 1
+
+		num_edges = len(graph.edges)
+		total_num_edges += num_edges
+		print(num_edges, " edges")
+
+		graph_copy = copy.deepcopy(graph)
+		d = DRAGS(graph_copy, ns, 0, num_nodes - 1, 0.75)
+		gg.getEdgeChanges(int(num_edges / num_changes))
+		print(num_edges/ num_changes, " edge changes")
+
+		l2 = d.run_replan(gg, graph)
+		if l2[0] == -1:
+			start_goal_disconnected += 1
+			continue
+
+		l1 = d.run(gg)
+
+		t1 += l1[0]
+		rt1 += l1[1]
+		u1 += l1[5]
+
+		t2 += l2[0]
+		rt2 += l2[1]
+		u2 += l2[5]
+
+		c1 += l1[2]
+		c2 += l2[2]
+
+
+		# writer.writerow({'num_nodes': num_nodes, 'num_edges' : total_num_edges, 
+		# 		'threshold': threshold, 'num_edges_changed': num_changes, 
+		# 		'd_totaltime': l1[0], 'd_replantime': l1[1], 'd_cost': l1[2], 'd_meancost': l1[3], 'd_varcost': l1[4], 'd_numupdates': l1[5],
+		# 'd_paths_expanded': l1[6], 'd_heap_ops': l1[7], 'd_paths_considered': l1[8],
+		# 'r_totaltime': l2[0], 'r_replantime': l2[1], 'r_cost': l2[2], 'r_meancost': l2[3], 'r_varcost': l2[4], 'r_numupdates': l2[5],
+		# 'r_paths_expanded': l2[6], 'r_heap_ops': l2[7], 'r_paths_considered': l2[8]})
+
+
+
+		if l1[1] < l2[1]:
+			better += 1
+
+		if l1[3] < l2[3]:
+			bettercost += 1
 
 	print("============")
 	print("stats - rt1: ", rt1, "t1", t1 , "u1: ",u1, "c1 ", c1)
 	print("rt2: ", rt2, "t2", t2, "u2: ", u2, "c2: ", c2)
 	print("better ", better)
 	print("better cost ", bettercost)
+	print("cancelled runs ", start_goal_disconnected)
 
 	# tuple1 = d.take_step()
 

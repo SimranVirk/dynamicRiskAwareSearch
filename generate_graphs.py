@@ -105,6 +105,7 @@ class GraphGenerator:
 			print("ERROR removing change")
 
 	def save_graph(self, graph, num_verts, graph_number):
+		# print("gen ", num_verts)
 		nx.write_edgelist(graph, "graph_files/%d_nodes/graph%d.edgelist" % (num_verts, graph_number), data = ['mean', 'var'])
 
 	def load_graph(self, num_verts, graph_number):
@@ -114,7 +115,7 @@ class GraphGenerator:
 
 if __name__ == "__main__":
 	gg = GraphGenerator(10, 10)
-	for i in [35,40]:
+	for i in [60,70,80,90,100]:
 		gg.gen_graphs(20, i, 10, 10, 20, save = True)
 	# graph = gg.load_graph(20, 1)
 	# print(graph.edges(data = True))
