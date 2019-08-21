@@ -1,1 +1,0 @@
-num_nodes,num_edges,threshold,num_edges_changed,d_totaltime,d_replantime,d_cost,d_meancost,d_varcost,d_numupdates,d_paths_expanded,d_heap_ops,d_paths_considered,r_totaltime,r_replantime,r_cost,r_meancost,r_varcost,r_numupdates,r_paths_expanded,r_heap_ops,r_paths_considered
