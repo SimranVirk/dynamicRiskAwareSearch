@@ -9,10 +9,10 @@ import generate_graphs as gen
 import matplotlib.pyplot as plt
 import math
 import time
-import test
+import rags
 import csv
 
-threshold = 0.75
+threshold = 1.0
 
 # def print_graph_2colors(graph, ns, nd_edges, final, color1, color2):
 #     print("printing")
@@ -63,12 +63,13 @@ class PathObject:
 
 class DRAGS:
 
-	def __init__(self, graph, ns, start, end, threshold):
+	def __init__(self, graph, ns, start, end, thresh):
 		self.g = graph
 		self.start = start
 		self.end = end
-		self.threshold = threshold
-		self.vert_locs = ns #for drawing the graph
+		global threshold
+		threshold = thresh
+		self.vert_locs = ns #the locations of the vertices - this is onlyfor drawing the graph
 
 		#metrics
 		self.path_expansions = 0
@@ -585,8 +586,9 @@ class DRAGS:
 
 
 	def run_replan(self, gg, graph):
-		rags = test.RAGS(graph, self.vert_locs, self.start, self.end)
-		lst = rags.run(gg)
+
+		r = rags.RAGS(graph, self.vert_locs, self.start, self.end, threshold)
+		lst = r.run(gg)
 		print("done")
 		return lst
 

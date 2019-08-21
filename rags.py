@@ -11,7 +11,7 @@ import math
 import time
 import copy
 
-threshold = 0.75
+threshold = 1.0
 # paths_expanded = 0
 # heap_ops = 0
 # paths_considered = 0
@@ -72,11 +72,14 @@ def dom(p1, p2):
 
 class RAGS:
 
-	def __init__(self, graph,ns, start, end):
+	def __init__(self, graph,ns, start, end, thresh):
 		self.g = graph
 		self.current_pos = start
 		self.end = end
-		self.ver_locs = ns
+		global threshold
+		threshold = thresh
+
+		self.ver_locs = ns #the locations of the vertices - this is onlyfor drawing the graph
 
 		#metrics
 		self.paths_expanded = 0
@@ -421,5 +424,4 @@ class RAGS:
 
 		print("heap", self.heap_ops, "paths ", self.paths_expanded)
 		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.paths_expanded, self.heap_ops, self.paths_considered, self.closed_accesses
-
 
