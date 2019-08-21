@@ -3,122 +3,142 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 22})
 import csv
 
-points = {20:[], 25:[], 30:[], 35:[], 40:[]}
-rpoints = {20:[], 25:[], 30:[], 35:[], 40:[]}
+points = {60:[], 70:[], 80:[], 90:[]}
+rpoints = {60:[], 70:[], 80:[], 90:[]}
 p_points = {}
 
-# num_changes = 20
-sizes = [20, 25, 30, 35, 40]
+sizes = [60,70,80,90]
 
 
-for j in [5]:
-	num_changes = j
-	for i in sizes:
-		num_nodes = i
-		p_points[(num_nodes, num_changes)] = []
-
-
-		with open('results/updated/updated_%d_%d.csv' % (num_nodes, num_changes), newline = '') as csvfile:
-			r = csv.reader(csvfile)
-			first_iter = True
-
-			d_heap_ops = []
-			d_path_expansions = []
-			d_cost = []
-
-			r_heap_ops = []
-			r_path_expansions = []
-			r_cost = []
-
-			p_heap_ops = []
-			p_path_expansions = []
-			p_cost = []
-
-
-			for row in r:
-				if first_iter:
-					first_iter = False
-				else:
-					d_heap = float(row[11])
-					d_path_exp =  float(row[10])
-					d_c = float(row[6])
-
-					r_heap = float(row[20])
-					r_path_exp =  float(row[19])
-					r_c = float(row[15])
-
-					d_heap_ops.append(d_heap)
-					d_path_expansions.append(d_path_exp)
-					d_cost.append(d_c)
-
-					r_heap_ops.append(r_heap)
-					r_path_expansions.append(r_path_exp)
-					r_cost.append(r_c)
-
-					p_path_expansions.append((r_path_exp - d_path_exp) * 100.0/d_path_exp)
-					p_heap_ops.append((r_heap - d_heap) * 100.0/d_heap)
-					p_cost.append((r_c - d_c) * 100.0/d_c)
+cols = []
 
 
 
-			d_dict = d_heap_ops
-			r_dict = r_heap_ops
-			p_dict = p_heap_ops
 
-			points[num_nodes].append(np.mean(np.array(d_dict).astype(float)))
-			points[num_nodes].append(np.std(np.array(d_dict).astype(float)))
+def read_csvs(graph_sizes, update_frequencies):
 
-			rpoints[num_nodes].append(np.mean(np.array(r_dict).astype(float)))
-			rpoints[num_nodes].append(np.std(np.array(r_dict).astype(float)))
+	csv_dicts = {}
 
-			p_points[num_nodes, num_changes].append(np.mean(np.array(p_dict).astype(float)))
-			p_points[num_nodes, num_changes].append(np.std(np.array(p_dict).astype(float)))
+	for u in update_frequencies:
+		num_changes = u
+		for i in graph_sizes:
+			csv_dict = {}
+
+			num_nodes = i
+			p_points[(num_nodes, u)] = []
 
 
-	x = np.array([x for x in points.keys()])
-	y = np.array([v[0] for k,v in points.items()])
-	e = np.array([v[1] for k,v in points.items()])
+			with open('results/update2/updated_%d_%d.csv' % (num_nodes, u), newline = '') as csvfile:
+				r = csv.reader(csvfile)
 
-	plt.errorbar(x,y,e, label = "d-RAGS")
+				first_iter = True
 
-	x1 = np.array([x for x in rpoints.keys()])
-	y1 = np.array([v[0] for k,v in rpoints.items()])
-	e1 = np.array([v[1] for k,v in rpoints.items()])
-	plt.errorbar(x1,y1,e1, color = 'r', label = "RAGS")
-	plt.title("Number of Path Expansions vs Graph Size")
-	plt.ylabel("# Path Expansions")
+				for row in r:
+					if first_iter:
+						first_iter = False
+						for colname in row:
+							csv_dict[colname] = []
+							cols.append(colname)
+					else:
+						for i in range(len(row)):
+							csv_dict[cols[i]].append(float(row[i]))
+
+			csv_dicts[num_nodes, num_changes] = csv_dict
+
+	return csv_dicts
+
+
+
+
+def gen_percent_comparison(csv_dicts, graph_sizes, colname, axisname, update_freqs):
+
+	#map graphsize, update freq to mean, stddev of column
+	points  = {}
+
+	x = np.array([x for x in sizes])
+
+	for u in update_freqs:
+		for g in graph_sizes:
+			file = csv_dicts[g, u]
+			diffs = np.array(np.array(file["r_" + colname]) - np.array(file["d_" + colname]))*100.0 / np.array(file["d_" + colname])
+
+			points[g,u] = [np.mean(diffs), np.std(diffs)]
+
+
+
+	for u in update_freqs:
+		x = []
+		y = []
+		e = []
+		for k,v in points.items():
+			if k[1] == u:
+				x.append(k[0])
+				y.append(v[0])
+				e.append(v[1])
+
+		plt.errorbar(x,y,e, label = '1 in %d edges changed'%(u))
+
+	plt.title("Percentage Extra %s"%(axisname))
+	plt.ylabel("Percent")
 	plt.xlabel("Graph Size")
 	plt.xticks(sizes)
 
 	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
+	plt.savefig("diagrams/update2/percent/%s" % (axisname), bbox_inches = "tight")
+	plt.show()
 
-	plt.savefig("diagrams/errorbarplot/single_edgechangenum/heap_ops_legend%d" % (num_changes), bbox_inches = "tight")
-	# plt.show()
+
+def gen_twoline_plot(csv_dicts, graph_sizes, colname, axisname, update_freq):
+	dcol = "d_" + colname
+	rcol = "r_" + colname
+
+	#map graph size to mean and stddev of column
+	drags = {}
+	rags = {}
+
+	for k,v in csv_dicts.items():
+		if k[1] == update_freq:
+			m = np.mean(np.array(v[dcol]))
+			s = np.std(np.array(v[dcol]))
+
+			drags[k[0]] = [m, s]
+
+			mr = np.mean(np.array(v[rcol]))
+			sr = np.std(np.array(v[rcol]))
+
+			rags[k[0]] = [mr, sr]
+
+	x = np.array([x for x in graph_sizes])
+	y = np.array([v[0] for k,v in drags.items()])
+	e = np.array([v[1] for k,v in drags.items()])
+	plt.errorbar(x,y,e, label = "d-RAGS")
+
+	y1 = np.array([v[0] for k,v in rags.items()])
+	e1 = np.array([v[1] for k,v in rags.items()])
+	plt.errorbar(x,y1,e1, color = 'r', label = "RAGS")
+
+	plt.title("%s vs Graph Size" % (axisname))
+	plt.ylabel(axisname)
+	plt.xlabel("Graph Size")
+	# # plt.ylim(0)
+	plt.xticks(sizes)
+
+	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 
-# x = np.array([x for x in sizes])
+	plt.savefig("diagrams/update2/single/%s_%d" % (axisname, update_freq), bbox_inches = "tight")
+	plt.show()
 
-# y5 = np.array([v[0] for k,v in p_points.items() if k[1] == 5])
-# e5 = np.array([v[1] for k,v in p_points.items() if k[1] == 5])
-# plt.errorbar(x,y5,e5, color = 'blue', label = '1 in 5 edges changed')
 
-# y10 = np.array([v[0] for k,v in p_points.items() if k[1] == 10])
-# e10 = np.array([v[1] for k,v in p_points.items() if k[1] == 10])
-# plt.errorbar(x,y10,e10, color = 'red', label = '1 in 10 edges changed')
 
-# y20 = np.array([v[0] for k,v in p_points.items() if k[1] == 20])
-# e20 = np.array([v[1] for k,v in p_points.items() if k[1] == 20])
-# plt.errorbar(x,y20,e20, color = 'orange', label = '1 in 20 edges changed')
+if __name__ == "__main__":
+	d = read_csvs(sizes, [5,20])
 
-# plt.title("Percentage Extra Heap Operations")
-# plt.ylabel("Heap Operations")
-# plt.xlabel("Graph Size")
-# plt.xticks(sizes)
+	# gen_twoline_plot(d, sizes, "cost", "Cost", 5)
+	gen_twoline_plot(d, sizes, "replantime", "Time", 5)
+	# gen_percent_comparison(d, sizes, "paths_expanded", "Heap Operations", [5,20])
 
-# # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-# plt.savefig("diagrams/errorbarplot/percentage_difference/heap_ops", bbox_inches = "tight")
-# # plt.show()
 
 

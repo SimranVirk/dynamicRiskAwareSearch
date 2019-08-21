@@ -302,7 +302,6 @@ class RAGS:
 		i = 0	
 
 		while len(self.opened) > 0:
-			i += 1
 			cur = heapq.heappop(self.opened)
 			self.heap_ops += 1
 			
@@ -312,6 +311,7 @@ class RAGS:
 			else:
 				continue
 
+			i += 1
 			if cur_node != self.current_pos:
 
 				for pred in self.g.predecessors(cur_node):
@@ -338,54 +338,6 @@ class RAGS:
 
 		print("prune graph ",i)
 		self.paths_expanded += i
-
-
-	# def phase1(graph, start, end):
-
-	# 	#Phase 1 - pruning
-	# 	open_paths = []
-	# 	heapq.heapify(open_paths)
-	# 	closed = defaultdict(list)
-
-	# 	path0 = PathObject([start], 0, 0)
-	# 	heapq.heappush(open_paths, path0)
-
-	# 	i = 0
-
-	# 	while len(open_paths) > 0:
-	# 		i += 1
-	# 		cur = heapq.heappop(open_paths)
-			
-	# 		cur_node = cur.path[-1]
-	# 		closed[cur_node].append(cur)
-
-	# 		if cur_node != end:
-
-	# 			for succ in graph.neighbors(cur_node):
-	# 				if succ not in cur.path:
-	# 					#path is acyclic
-
-	# 					newm = cur.mean + get_mean(graph, cur_node, succ)
-	# 					newv = cur.var + get_var(graph, cur_node, succ)
-	# 					new_path = copy.deepcopy(cur.path)
-	# 					new_path.append(succ)
-
-	# 					p = PathObject(new_path, newm, newv)
-
-	# 					if not betterPathToNode(closed, p):
-	# 						heapq.heappush(open_paths, p)
-
-	# 		if len(open_paths) > 0 and betterPathToGoal(closed, end, heapq.nsmallest(1, open_paths)[0]):
-	# 			break
-
-	# 	if len(closed[end]) == 0:
-	# 		print("No path to goal")
-	# 		return []
-
-	# 	print("prune graph ",i)
-
-	# 	return closed
-
 
 
 	def takestep(self):
@@ -468,6 +420,6 @@ class RAGS:
 
 
 		print("heap", self.heap_ops, "paths ", self.paths_expanded)
-		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.paths_expanded, self.heap_ops, self.paths_considered
+		return total_time, replan_time, self.cost, self.mean_cost, self.var_cost, update_ctr, self.paths_expanded, self.heap_ops, self.paths_considered, self.closed_accesses
 
 
