@@ -6,4 +6,4 @@ To run, install the requirements from requirements.txt and run main.py
 
 
 # Acknowledgements
-Completed as part of a summer internship at the Robotics Institue at CMU- specifically, at the Advanced Agent-Robotics Technology lab headed by [Dr Katia Sycara](https://www.ri.cmu.edu/ri-faculty/katia-sycara/). I would also like to acknowledge the [Sha Yi](https://yswhynot.github.io/subpage/projects/2018.html) and Sumit Kumar in helping with this research project.
+Completed as part of a summer internship at the Robotics Institue at CMU. Specifically at the Advanced Agent-Robotics Technology lab headed by [Dr Katia Sycara](https://www.ri.cmu.edu/ri-faculty/katia-sycara/). I would also like to acknowledge the [Sha Yi](https://yswhynot.github.io/subpage/projects/2018.html) and Sumit Kumar in helping with this research project.
